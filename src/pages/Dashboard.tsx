@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, 
   Users, 
@@ -7,7 +7,8 @@ import {
   ArrowUpRight,
   FileText,
   Trash2,
-  BarChart3
+  BarChart3,
+  RefreshCcw
 } from 'lucide-react';
 import { useStaffStore } from '../store/useStaffStore';
 import { parseStaffExcel } from '../lib/algorithms/ExcelLoader';
@@ -15,12 +16,14 @@ import { parseOvertimeWord } from '../lib/algorithms/overtimeParser';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
-  const { staffData, config, isLoading, setStaffData, clearData } = useStaffStore();
+  const { staffData, config, isLoading, setStaffData, clearData, clearAllRecords } = useStaffStore();
   
-  // 遷移自 DataManagement 的狀態
   const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
   const [defaultDate, setDefaultDate] = useState('');
+  
+  const staffInputRef = useRef<HTMLInputElement>(null);
+  const wordInputRef = useRef<HTMLInputElement>(null);
 
   const stats = [
     { 
@@ -76,6 +79,7 @@ export function Dashboard() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setMessages(prev => [...prev, `✗ 錯誤: ${errorMsg}`]);
+      if (staffInputRef.current) staffInputRef.current.value = '';
     } finally {
       setIsProcessing(false);
     }
@@ -99,9 +103,24 @@ export function Dashboard() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setMessages(prev => [...prev, `✗ Word 解析失敗: ${errorMsg}`]);
+      if (wordInputRef.current) wordInputRef.current.value = '';
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleFullClear = async () => {
+    await clearData();
+    setMessages([]); // 徹底清空日誌
+    setDefaultDate(''); // 重置預設日期
+    if (staffInputRef.current) staffInputRef.current.value = '';
+    if (wordInputRef.current) wordInputRef.current.value = '';
+  };
+
+  const handleClearOvertimeOnly = async () => {
+    await clearAllRecords();
+    setMessages(prev => [...prev, '✓ 月份加班紀錄已清空，保留人員名單']);
+    if (wordInputRef.current) wordInputRef.current.value = '';
   };
 
   if (isLoading) {
@@ -112,22 +131,35 @@ export function Dashboard() {
     );
   }
 
+  const hasOvertimeData = staffData && Object.values(staffData.people).some(p => p.records.length > 0);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">系統總覽中心</h1>
           <p className="text-slate-500 mt-1 font-medium">即時數據監控與資料來源載入</p>
         </div>
-        {staffData && (
-          <button 
-            onClick={clearData}
-            className="flex items-center px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl text-sm font-bold transition-all border border-red-100"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            清除所有載入資料
-          </button>
-        )}
+        <div className="flex items-center space-x-3">
+          {hasOvertimeData && (
+            <button 
+              onClick={handleClearOvertimeOnly}
+              className="flex items-center px-4 py-2 text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-xl text-sm font-bold transition-all border border-amber-100"
+            >
+              <RefreshCcw className="w-4 h-4 mr-2" />
+              僅清空加班單
+            </button>
+          )}
+          {staffData && (
+            <button 
+              onClick={handleFullClear}
+              className="flex items-center px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl text-sm font-bold transition-all border border-red-100"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              全部清除
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -166,6 +198,7 @@ export function Dashboard() {
               <div className="space-y-4">
                 <input 
                   type="file" 
+                  ref={staffInputRef}
                   accept=".xlsx"
                   onChange={handleStaffUpload}
                   className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-black file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
@@ -196,6 +229,7 @@ export function Dashboard() {
                 />
                 <input 
                   type="file" 
+                  ref={wordInputRef}
                   disabled={!staffData}
                   accept=".docx"
                   onChange={handleWordUpload}
