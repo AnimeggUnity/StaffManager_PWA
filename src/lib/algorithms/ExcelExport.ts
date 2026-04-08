@@ -151,45 +151,6 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       });
 
-      // --- 3. 同步合併儲存格 ---
-      const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-      merges.forEach((m) => {
-        newSheet.mergeCells(m);
-        
-        // 框線強化修復程序 (1:1 模板同步 + 聯集修復版 - 解決 C4 繼承斷線)
-        try {
-          const [start, end] = m.split(':');
-          if (start && end) {
-            const startCell = templateSheet.getCell(start);
-            const endCell = templateSheet.getCell(end);
-            
-            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                const tRow = templateSheet.getRow(r);
-                const tCol = templateSheet.getColumn(c);
-                const tCell = templateSheet.getCell(r, c);
-                
-                // 聯集邊框：儲存格 > 整列 > 整欄
-                const combinedBorder: Partial<ExcelJS.Borders> = {
-                  top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
-                  left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
-                  bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
-                  right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
-                };
-
-                const nCell = newSheet.getCell(r, c);
-                if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
-                  nCell.border = combinedBorder as ExcelJS.Borders;
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // 靜默處理
-        }
-      });
-
       // --- 4. 同步頁面佈局 ---
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
@@ -264,6 +225,41 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
          if (typeof cell.value === 'string' && cell.value.includes('{{')) 
            cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
       }));
+
+      // --- 5. 同步合併儲存格與最終邊框修復 (後置作業，防止被前述操作覆蓋樣式) ---
+      const merges = (templateSheet.model as { merges?: string[] }).merges || [];
+      merges.forEach((m) => {
+        newSheet.mergeCells(m);
+        
+        try {
+          const [start, end] = m.split(':');
+          if (start && end) {
+            const startCell = templateSheet.getCell(start);
+            const endCell = templateSheet.getCell(end);
+            
+            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+                const tRow = templateSheet.getRow(r);
+                const tCol = templateSheet.getColumn(c);
+                const tCell = templateSheet.getCell(r, c);
+                
+                const combinedBorder: Partial<ExcelJS.Borders> = {
+                  top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
+                  left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
+                  bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
+                  right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
+                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+                };
+
+                const nCell = newSheet.getCell(r, c);
+                if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
+                  nCell.border = combinedBorder as ExcelJS.Borders;
+                }
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+      });
 
       newSheet.properties.tabColor = { argb: person.header.shift === '早班' ? 'FF00B050' : 'FF4472C4' };
     });
