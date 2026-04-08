@@ -26,7 +26,7 @@ function calculateHours(record: TimeRecord): number {
 
 export async function generateExcelReport(staffData: StaffData, appConfig: AppConfig | null): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
-  const response = await fetch(`${baseUrl}templates/overtime_template.xlsx`);
+  const response = await fetch(`${baseUrl}templates/overtime_template.xlsx?v=${Date.now()}`);
   if (!response.ok) throw new Error("找不到 Excel 模板");
   const arrayBuffer = await response.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -228,39 +228,43 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
 
       // --- 5. 同步合併儲存格與最終邊框修復 (後置作業，防止被前述操作覆蓋樣式) ---
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-      merges.forEach((m) => {
-        newSheet.mergeCells(m);
-        
-        try {
-          const [start, end] = m.split(':');
-          if (start && end) {
-            const startCell = templateSheet.getCell(start);
-            const endCell = templateSheet.getCell(end);
-            
-            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                const tRow = templateSheet.getRow(r);
-                const tCol = templateSheet.getColumn(c);
-                const tCell = templateSheet.getCell(r, c);
-                
-                // 1:1 精準同步模板邊框 (優先從儲存格獲取，若無則嘗試從列/欄繼承)
-                const combinedBorder: Partial<ExcelJS.Borders> = {
-                  top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
-                  left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
-                  bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
-                  right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal,
-                };
+      merges.forEach((m) => { newSheet.mergeCells(m); });
 
-                const nCell = newSheet.getCell(r, c);
-                if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
-                  nCell.border = combinedBorder as ExcelJS.Borders;
-                }
-              }
-            }
+      // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
+      const tRowCount = templateSheet.rowCount;
+      const tColCount = templateSheet.columnCount;
+      for (let r = 1; r <= tRowCount; r++) {
+        for (let c = 1; c <= tColCount; c++) {
+          const tCell = templateSheet.getRow(r).getCell(c);
+          const directBorder = tCell.border || {};
+          const effectiveBorder: Partial<ExcelJS.Borders> = { ...directBorder };
+
+          // 向上鄰格推斷 top border
+          if (!effectiveBorder.top && r > 1) {
+            const above = templateSheet.getRow(r - 1).getCell(c);
+            if (above.border?.bottom) effectiveBorder.top = above.border.bottom;
           }
-        } catch (e) { /* ignore */ }
-      });
+          // 向下鄰格推斷 bottom border
+          if (!effectiveBorder.bottom && r < tRowCount) {
+            const below = templateSheet.getRow(r + 1).getCell(c);
+            if (below.border?.top) effectiveBorder.bottom = below.border.top;
+          }
+          // 向左鄰格推斷 left border
+          if (!effectiveBorder.left && c > 1) {
+            const leftCell = templateSheet.getRow(r).getCell(c - 1);
+            if (leftCell.border?.right) effectiveBorder.left = leftCell.border.right;
+          }
+          // 向右鄰格推斷 right border
+          if (!effectiveBorder.right && c < tColCount) {
+            const rightCell = templateSheet.getRow(r).getCell(c + 1);
+            if (rightCell.border?.left) effectiveBorder.right = rightCell.border.left;
+          }
+
+          if (Object.keys(effectiveBorder).length > 0) {
+            newSheet.getRow(r).getCell(c).border = JSON.parse(JSON.stringify(effectiveBorder));
+          }
+        }
+      }
 
       newSheet.properties.tabColor = { argb: person.header.shift === '早班' ? 'FF00B050' : 'FF4472C4' };
     });

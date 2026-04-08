@@ -7,7 +7,7 @@ export async function generatePublicHolidayReport(
   holidayRecords: ManualOvertime['records']
 ): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
-  const response = await fetch(`${baseUrl}templates/public_holiday_overtime_template.xlsx`);
+  const response = await fetch(`${baseUrl}templates/public_holiday_overtime_template.xlsx?v=${Date.now()}`);
   if (!response.ok) throw new Error("找不到國定假日模板");
   const arrayBuffer = await response.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
@@ -140,6 +140,46 @@ export async function generatePublicHolidayReport(
         });
         cell.value = content;
       });
+    }
+
+    // --- 5. 同步合併儲存格與最終邊框修復 ---
+    const merges = (templateSheet.model as { merges?: string[] }).merges || [];
+    merges.forEach((m) => { newSheet.mergeCells(m); });
+
+    // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
+    const tRowCount = templateSheet.rowCount;
+    const tColCount = templateSheet.columnCount;
+    for (let r = 1; r <= tRowCount; r++) {
+      for (let c = 1; c <= tColCount; c++) {
+        const tCell = templateSheet.getRow(r).getCell(c);
+        const directBorder = tCell.border || {};
+        const effectiveBorder: Partial<ExcelJS.Borders> = { ...directBorder };
+
+        // 向上鄰格推斷 top border
+        if (!effectiveBorder.top && r > 1) {
+          const above = templateSheet.getRow(r - 1).getCell(c);
+          if (above.border?.bottom) effectiveBorder.top = above.border.bottom;
+        }
+        // 向下鄰格推斷 bottom border
+        if (!effectiveBorder.bottom && r < tRowCount) {
+          const below = templateSheet.getRow(r + 1).getCell(c);
+          if (below.border?.top) effectiveBorder.bottom = below.border.top;
+        }
+        // 向左鄰格推斷 left border
+        if (!effectiveBorder.left && c > 1) {
+          const leftCell = templateSheet.getRow(r).getCell(c - 1);
+          if (leftCell.border?.right) effectiveBorder.left = leftCell.border.right;
+        }
+        // 向右鄰格推斷 right border
+        if (!effectiveBorder.right && c < tColCount) {
+          const rightCell = templateSheet.getRow(r).getCell(c + 1);
+          if (rightCell.border?.left) effectiveBorder.right = rightCell.border.left;
+        }
+
+        if (Object.keys(effectiveBorder).length > 0) {
+          newSheet.getRow(r).getCell(c).border = JSON.parse(JSON.stringify(effectiveBorder));
+        }
+      }
     }
 
     newSheet.properties.tabColor = { argb: 'FFFFC000' };

@@ -128,34 +128,43 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
 
     // --- 3. 最終步驟：合併儲存格與聯集邊框修補 ---
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => {
-      newSheet.mergeCells(m);
-      try {
-        const [start, end] = m.split(':');
-        if (start && end) {
-          const startCell = templateSheet.getCell(start);
-          const endCell = templateSheet.getCell(end);
-          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-              const tRow = templateSheet.getRow(r);
-              const tCol = templateSheet.getColumn(c);
-              const tCell = templateSheet.getCell(r, c);
-              const combinedBorder: Partial<ExcelJS.Borders> = {
-                top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
-                left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
-                bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
-                right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                diagonal: tCell.border?.diagonal || tRow.border?.diagonal,
-              };
-              const nCell = newSheet.getCell(r, c);
-              if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
-                nCell.border = combinedBorder as ExcelJS.Borders;
-              }
-            }
-          }
+    merges.forEach((m) => { newSheet.mergeCells(m); });
+
+    // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
+    const tRowCount = templateSheet.rowCount;
+    const tColCount = templateSheet.columnCount;
+    for (let r = 1; r <= tRowCount; r++) {
+      for (let c = 1; c <= tColCount; c++) {
+        const tCell = templateSheet.getRow(r).getCell(c);
+        const directBorder = tCell.border || {};
+        const effectiveBorder: Partial<ExcelJS.Borders> = { ...directBorder };
+
+        // 向上鄰格推斷 top border
+        if (!effectiveBorder.top && r > 1) {
+          const above = templateSheet.getRow(r - 1).getCell(c);
+          if (above.border?.bottom) effectiveBorder.top = above.border.bottom;
         }
-      } catch (e) { /* ignore */ }
-    });
+        // 向下鄰格推斷 bottom border
+        if (!effectiveBorder.bottom && r < tRowCount) {
+          const below = templateSheet.getRow(r + 1).getCell(c);
+          if (below.border?.top) effectiveBorder.bottom = below.border.top;
+        }
+        // 向左鄰格推斷 left border
+        if (!effectiveBorder.left && c > 1) {
+          const leftCell = templateSheet.getRow(r).getCell(c - 1);
+          if (leftCell.border?.right) effectiveBorder.left = leftCell.border.right;
+        }
+        // 向右鄰格推斷 right border
+        if (!effectiveBorder.right && c < tColCount) {
+          const rightCell = templateSheet.getRow(r).getCell(c + 1);
+          if (rightCell.border?.left) effectiveBorder.right = rightCell.border.left;
+        }
+
+        if (Object.keys(effectiveBorder).length > 0) {
+          newSheet.getRow(r).getCell(c).border = JSON.parse(JSON.stringify(effectiveBorder));
+        }
+      }
+    }
 
     // 強制列印設定：0.25邊界與單頁縮放
     newSheet.pageSetup = {

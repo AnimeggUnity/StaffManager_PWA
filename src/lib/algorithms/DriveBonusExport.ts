@@ -161,14 +161,38 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
     merges.forEach((m) => { newSheet.mergeCells(m); });
 
-    // --- 終極邊框同步 pass (採用雙層 For 迴圈確保不漏掉任何空儲存格的樣式) ---
-    for (let r = 1; r <= templateSheet.rowCount; r++) {
-      const tRow = templateSheet.getRow(r);
-      for (let c = 1; c <= templateSheet.columnCount; c++) {
-        const tCell = tRow.getCell(c);
-        if (tCell.border) {
-          const nCell = newSheet.getRow(r).getCell(c);
-          nCell.border = JSON.parse(JSON.stringify(tCell.border));
+    // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
+    const tRowCount = templateSheet.rowCount;
+    const tColCount = templateSheet.columnCount;
+    for (let r = 1; r <= tRowCount; r++) {
+      for (let c = 1; c <= tColCount; c++) {
+        const tCell = templateSheet.getRow(r).getCell(c);
+        const directBorder = tCell.border || {};
+        const effectiveBorder: ExcelJS.Borders = { ...directBorder };
+
+        // 向上鄰格推斷 top border
+        if (!effectiveBorder.top && r > 1) {
+          const above = templateSheet.getRow(r - 1).getCell(c);
+          if (above.border?.bottom) effectiveBorder.top = above.border.bottom;
+        }
+        // 向下鄰格推斷 bottom border
+        if (!effectiveBorder.bottom && r < tRowCount) {
+          const below = templateSheet.getRow(r + 1).getCell(c);
+          if (below.border?.top) effectiveBorder.bottom = below.border.top;
+        }
+        // 向左鄰格推斷 left border
+        if (!effectiveBorder.left && c > 1) {
+          const leftCell = templateSheet.getRow(r).getCell(c - 1);
+          if (leftCell.border?.right) effectiveBorder.left = leftCell.border.right;
+        }
+        // 向右鄰格推斷 right border
+        if (!effectiveBorder.right && c < tColCount) {
+          const rightCell = templateSheet.getRow(r).getCell(c + 1);
+          if (rightCell.border?.left) effectiveBorder.right = rightCell.border.left;
+        }
+
+        if (Object.keys(effectiveBorder).length > 0) {
+          newSheet.getRow(r).getCell(c).border = JSON.parse(JSON.stringify(effectiveBorder));
         }
       }
     }
