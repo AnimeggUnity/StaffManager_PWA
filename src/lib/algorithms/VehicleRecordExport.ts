@@ -181,12 +181,11 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       } catch (e) { /* ignore */ }
     });
 
-    // 強制列印設定：確保寬度縮放至一頁 (Fit to One Page Width)
+    // 強制列印設定：固定縮放比例為 99% (依據使用者測試之最佳值)
     newSheet.pageSetup = {
       ...JSON.parse(JSON.stringify(templateSheet.pageSetup || {})),
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 0, // 0 代表高度自動分頁
+      fitToPage: false,
+      scale: 99,
       orientation: 'portrait'
     };
     newSheet.views = [{ zoomScale: 100 }];
