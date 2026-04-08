@@ -148,7 +148,8 @@ export const useStaffStore = create<StaffState>((setStore) => ({
               sm,
               eh,
               em,
-              manual_hours: rule.hours
+              manual_hours: rule.hours,
+              isManual: true
             });
           }
         }

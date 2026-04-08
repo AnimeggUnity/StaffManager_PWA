@@ -6,6 +6,7 @@ export interface TimeRecord {
   eh: string; // end_hour
   em: string; // end_min
   manual_hours?: number | null;
+  isManual?: boolean;
 }
 
 export interface Employee {

@@ -166,9 +166,17 @@ export function OvertimeProcessing() {
                   <td className="px-6 py-5">
                     <div className="flex flex-wrap gap-2">
                       {person.records.map((record, i) => (
-                        <div key={i} className="group relative flex items-center px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium shadow-sm">
-                          <span className="font-bold text-blue-600 mr-2">{record.date}</span>
-                          <span className="text-slate-700 mr-4">{record.reason}</span>
+                        <div key={i} className={cn(
+                          "group relative flex items-center px-3 py-1 rounded-lg text-xs font-medium shadow-sm border transition-all",
+                          record.isManual 
+                            ? "bg-indigo-50 border-indigo-200 text-indigo-700" 
+                            : "bg-white border-slate-200 text-slate-700"
+                        )}>
+                          <span className={cn(
+                            "font-bold mr-2",
+                            record.isManual ? "text-indigo-600" : "text-blue-600"
+                          )}>{record.date}</span>
+                          <span className="mr-4">{record.reason}</span>
                           <button 
                             onClick={() => handleRemoveRecord(person.header.emp_id, i)}
                             className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded-md transition-all ml-auto"
