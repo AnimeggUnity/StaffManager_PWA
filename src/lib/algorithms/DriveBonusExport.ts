@@ -111,8 +111,8 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       row.eachCell((cell, colNumber) => {
         if (typeof cell.value === 'string') {
           let text = cell.value;
-          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, rocYearStr);
-          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, month.toString());
+          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, `    ${rocYearStr}    `);
+          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, `  ${month.toString()}  `);
           if (text.includes('{{name}}')) text = text.replace(/\{\{name\}\}/g, info.name);
           if (text.includes('{{empid}}')) text = text.replace(/\{\{empid\}\}/g, `店${empId}`);
           if (text.includes('{{carplate}}')) text = text.replace(/\{\{carplate\}\}/g, info.cars[0] || "");
