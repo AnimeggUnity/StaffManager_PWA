@@ -7,8 +7,6 @@ const GRAY_FILL: ExcelJS.Fill = {
   fgColor: { argb: 'FFD9D9D9' }
 };
 
-
-
 const TEMPLATE_CONFIG: Record<string, { sheet_name: string; date_start_row: number; date_end_row: number }> = {
   "資收班用車": {
     "sheet_name": "資收車",
@@ -48,12 +46,9 @@ function replaceCellTag(cell: ExcelJS.Cell | null, tag: string, value: any) {
 
 function isOffDay(date: Date, rules: SpecialRules | null): boolean {
   const mmdd = `${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
-  
   if (rules?.manual_workdays?.includes(mmdd)) return false;
   if (rules?.manual_holidays?.includes(mmdd)) return true;
-  
-  const day = date.getDay(); // 0 is Sunday
-  // 強制轉為數字進行比對，避免字串/數字衝突 (關鍵修正)
+  const day = date.getDay();
   const offWeekdays = (rules?.default_off_weekdays || [3, 0]).map(Number); 
   return offWeekdays.includes(day);
 }
@@ -69,17 +64,13 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
   const vehicles = staffData.vehicleRecords || [];
   if (vehicles.length === 0) throw new Error("沒有車輛資料可供產出");
 
-  // 精確計算年份與月份 (與 Python _parse_month 完全對齊)
   const monthStr = staffData.month.trim();
   const month = parseInt(monthStr.slice(-2)) || (new Date().getMonth() + 1);
-  
-  // 計算年份 (優先使用設定中的民國年)
   const rocYearNum = appConfig?.roc_year || (new Date().getFullYear() - 1911);
   const year = rocYearNum + 1911;
   const lastDay = new Date(year, month, 0).getDate();
   const rocYearStr = rocYearNum.toString();
 
-  // 1:1 克隆所有車種樣板
   const templates: Record<string, ExcelJS.Worksheet> = {};
   for (const spec in TEMPLATE_CONFIG) {
     const sheet = workbook.getWorksheet(TEMPLATE_CONFIG[spec].sheet_name);
@@ -93,22 +84,29 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
 
     const newSheet = workbook.addWorksheet(vehicle.plate);
 
-    // --- 1. 佈局克隆 (1:1) ---
+    // --- 1. 樣式同步 (1:1 繼承) ---
     if (templateSheet.columns) {
       templateSheet.columns.forEach((col, idx) => {
         const nCol = newSheet.getColumn(idx + 1);
-        nCol.width = col.width ? col.width + 1 : undefined; 
+        if (col.width) nCol.width = col.width + 1; 
         nCol.hidden = col.hidden;
+        if (col.font) nCol.font = { ...col.font };
+        if (col.fill) nCol.fill = { ...col.fill } as any;
+        if (col.alignment) nCol.alignment = { ...col.alignment };
+        if (col.border) nCol.border = { ...col.border };
       });
     }
 
     templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
       const newRow = newSheet.getRow(rowNumber);
       newRow.height = row.height;
+      if (row.font) newRow.font = { ...row.font };
+      if (row.fill) newRow.fill = { ...row.fill } as any;
+      if (row.alignment) newRow.alignment = { ...row.alignment };
+      if (row.border) newRow.border = { ...row.border };
+
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
-
-        // 使用精準屬性賦值，確保邊框細節不因 JSON 序列化而遺失
         if (cell.style) {
           if (cell.font) newCell.font = { ...cell.font };
           if (cell.fill) newCell.fill = { ...cell.fill } as any;
@@ -120,33 +118,9 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       });
     });
 
-    const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => {
-      newSheet.mergeCells(m);
-      
-      // 框線強化修復程序 (1:1 模板同步)
-      try {
-        const [start, end] = m.split(':');
-        if (start && end) {
-          const startCell = templateSheet.getCell(start);
-          const endCell = templateSheet.getCell(end);
-          
-          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-              const templateCell = templateSheet.getCell(r, c);
-              if (templateCell.border) {
-                newSheet.getCell(r, c).border = { ...templateCell.border };
-              }
-            }
-          }
-        }
-      } catch (e) {
-        // 靜默處理
-      }
-    });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
-    // --- 2. 標籤替換 (對齊 Python: 僅替換特定位置，非全域替換) ---
+    // --- 2. 標籤與資料填充 ---
     const tagYear = findTagCell(newSheet, 'year');
     const tagMonth = findTagCell(newSheet, 'month');
     const tagPlate = findTagCell(newSheet, 'car_plate');
@@ -157,33 +131,58 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
     replaceCellTag(tagPlate, 'car_plate', vehicle.plate);
     replaceCellTag(tagOrder, 'order_com', vehicle.extra || "");
 
-    // --- 3. 1-31 日生成與塗灰邏輯 (只改 A 欄，其餘欄位禁止變動) ---
     const startRow = config.date_start_row;
-    
     for (let day = 1; day <= 31; day++) {
       const targetRow = startRow + day - 1;
       const currentRow = newSheet.getRow(targetRow);
-      const dateCell = currentRow.getCell(1); // A 欄
-      
+      const dateCell = currentRow.getCell(1);
       if (day > lastDay) {
         dateCell.value = "";
       } else {
         dateCell.value = day;
-        
-        // 判定休假日 (與 Python _is_off_day 對應)
         const currentDate = new Date(year, month - 1, day);
         if (isOffDay(currentDate, rules)) {
-          // 僅對 1-12 欄進行噴塗，不改動內容
           for (let col = 1; col <= 12; col++) {
             currentRow.getCell(col).fill = GRAY_FILL;
           }
         }
       }
     }
+
+    // --- 3. 最終步驟：合併儲存格與聯集邊框修復 ---
+    const merges = (templateSheet.model as { merges?: string[] }).merges || [];
+    merges.forEach((m) => {
+      newSheet.mergeCells(m);
+      try {
+        const [start, end] = m.split(':');
+        if (start && end) {
+          const startCell = templateSheet.getCell(start);
+          const endCell = templateSheet.getCell(end);
+          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+              const tRow = templateSheet.getRow(r);
+              const tCol = templateSheet.getColumn(c);
+              const tCell = templateSheet.getCell(r, c);
+              const combinedBorder: Partial<ExcelJS.Borders> = {
+                top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
+                left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
+                bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
+                right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
+                diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+              };
+              const nCell = newSheet.getCell(r, c);
+              if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
+                nCell.border = combinedBorder as ExcelJS.Borders;
+              }
+            }
+          }
+        }
+      } catch (e) { /* ignore */ }
+    });
+
     newSheet.views = [{ zoomScale: 100 }];
   }
 
-  // 移除原始模板
   for (const spec in TEMPLATE_CONFIG) {
     const sheet = workbook.getWorksheet(TEMPLATE_CONFIG[spec].sheet_name);
     if (sheet) workbook.removeWorksheet(sheet.id);

@@ -30,7 +30,6 @@ function isOffDay(date: Date, rules: SpecialRules | null): boolean {
   if (rules?.manual_holidays?.includes(mmdd)) return true;
   
   const day = date.getDay(); // 0 is Sunday
-  // 強制轉為數字進行比對
   const offWeekdays = (rules?.default_off_weekdays || [3, 0]).map(Number);
   return offWeekdays.includes(day);
 }
@@ -47,7 +46,6 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
   const driverIds = Object.keys(drivers);
   if (driverIds.length === 0) throw new Error("沒有司機資料可供產出");
 
-  // 精確計算年份與月份
   const monthStr = staffData.month.trim();
   const month = parseInt(monthStr.slice(-2)) || (new Date().getMonth() + 1);
   const rocYearNum = appConfig?.roc_year || (new Date().getFullYear() - 1911);
@@ -55,7 +53,6 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
   const lastDay = new Date(year, month, 0).getDate();
   const rocYearStr = rocYearNum.toString();
 
-  // 1:1 克隆角色樣板
   const templates: Record<string, ExcelJS.Worksheet> = {};
   for (const role in ROLE_CONFIG) {
     const sheet = workbook.getWorksheet(ROLE_CONFIG[role].template_name);
@@ -71,22 +68,29 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
 
     const newSheet = workbook.addWorksheet(empId);
 
-    // --- 1. 佈局克隆 (1:1) ---
+    // --- 1. 佈局與繼承樣式同步 ---
     if (templateSheet.columns) {
-        templateSheet.columns.forEach((col, idx) => {
-          const nCol = newSheet.getColumn(idx + 1);
-          nCol.width = col.width ? col.width + 1 : undefined; 
-          nCol.hidden = col.hidden;
-        });
+      templateSheet.columns.forEach((col, idx) => {
+        const nCol = newSheet.getColumn(idx + 1);
+        nCol.width = col.width ? col.width + 1 : undefined; 
+        nCol.hidden = col.hidden;
+        if (col.font) nCol.font = { ...col.font };
+        if (col.fill) nCol.fill = { ...col.fill } as any;
+        if (col.alignment) nCol.alignment = { ...col.alignment };
+        if (col.border) nCol.border = { ...col.border };
+      });
     }
 
     templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
       const newRow = newSheet.getRow(rowNumber);
       newRow.height = row.height;
+      if (row.font) newRow.font = { ...row.font };
+      if (row.fill) newRow.fill = { ...row.fill } as any;
+      if (row.alignment) newRow.alignment = { ...row.alignment };
+      if (row.border) newRow.border = { ...row.border };
+
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
-        
-        // 使用精準屬性賦值，防止邊框細節丟失 (解決斷線問題)
         if (cell.style) {
           if (cell.font) newCell.font = { ...cell.font };
           if (cell.fill) newCell.fill = { ...cell.fill } as any;
@@ -98,34 +102,10 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       });
     });
 
-    const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => {
-      newSheet.mergeCells(m);
-      
-      // 框線強化修復：確保合併邊界 (如 H6) 完整繼承模板框線
-      try {
-        const [start, end] = m.split(':');
-        if (start && end) {
-          const startCell = templateSheet.getCell(start);
-          const endCell = templateSheet.getCell(end);
-          
-          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-              const templateCell = templateSheet.getCell(r, c);
-              if (templateCell.border) {
-                newSheet.getCell(r, c).border = { ...templateCell.border };
-              }
-            }
-          }
-        }
-      } catch (e) {
-        // 靜默處理
-      }
-    });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
-    // --- 2. 標籤與紀錄填充 (1:1) ---
-    let dateRow = 0, dateCol = 0, nameRow=0, nameCol=0, idRow=0, idCol=0, carRow=0, carCol=0;
+    // --- 2. 標籤定位與資料填充 ---
+    let dateRow = 0, dateCol = 0, nameRow = 0, nameCol = 0, idRow = 0, idCol = 0, carRow = 0, carCol = 0;
     
     newSheet.eachRow((row, rowNumber) => {
       row.eachCell((cell, colNumber) => {
@@ -141,14 +121,11 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       });
     });
 
-    // 填充 1-31 日日期與垂直塗灰 (修正重心)
     if (dateRow && dateCol) {
       for (let day = 1; day <= 31; day++) {
         const dateCell = newSheet.getRow(dateRow).getCell(dateCol + day - 1);
-        
         if (day > lastDay) {
           dateCell.value = "";
-          // 超過天數清空底色
           for (let r = 1; r <= roleConfig.rows; r++) {
              newSheet.getRow(dateRow + r).getCell(dateCol + day - 1).fill = WHITE_FILL;
           }
@@ -156,8 +133,6 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
           dateCell.value = day;
           const currentDate = new Date(year, month - 1, day);
           const fillStyle = isOffDay(currentDate, rules) ? GRAY_FILL : WHITE_FILL;
-          
-          // 垂直塗灰全部角色行 (根據判定著色)
           for (let r = 1; r <= roleConfig.rows; r++) {
              newSheet.getRow(dateRow + r).getCell(dateCol + day - 1).fill = fillStyle;
           }
@@ -165,22 +140,50 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       }
     }
 
-    // 填充多台車輛 (1:1)
     if (carRow && carCol) {
-        for (let i = 1; i < roleConfig.rows; i++) {
-           if (info.cars[i]) {
-              const carCell = newSheet.getRow(carRow + i).getCell(carCol);
-              carCell.value = info.cars[i];
-              newSheet.getRow(nameRow + i).getCell(nameCol).value = info.name;
-              newSheet.getRow(idRow + i).getCell(idCol).value = `店${empId}`;
-           }
+      for (let i = 1; i < roleConfig.rows; i++) {
+        if (info.cars[i]) {
+          newSheet.getRow(carRow + i).getCell(carCol).value = info.cars[i];
+          newSheet.getRow(nameRow + i).getCell(nameCol).value = info.name;
+          newSheet.getRow(idRow + i).getCell(idCol).value = `店${empId}`;
         }
+      }
     }
+
+    // --- 3. 最終步驟：合併儲存格與聯集邊框修復 (防止資料覆蓋樣式) ---
+    const merges = (templateSheet.model as { merges?: string[] }).merges || [];
+    merges.forEach((m) => {
+      newSheet.mergeCells(m);
+      try {
+        const [start, end] = m.split(':');
+        if (start && end) {
+          const startCell = templateSheet.getCell(start);
+          const endCell = templateSheet.getCell(end);
+          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+              const tRow = templateSheet.getRow(r);
+              const tCol = templateSheet.getColumn(c);
+              const tCell = templateSheet.getCell(r, c);
+              const combinedBorder: Partial<ExcelJS.Borders> = {
+                top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
+                left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
+                bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
+                right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
+                diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+              };
+              const nCell = newSheet.getCell(r, c);
+              if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
+                nCell.border = combinedBorder as ExcelJS.Borders;
+              }
+            }
+          }
+        }
+      } catch (e) { /* ignore */ }
+    });
 
     newSheet.views = [{ zoomScale: 57 }];
   }
 
-  // 移除原始模板
   for (const role in ROLE_CONFIG) {
     const sheet = workbook.getWorksheet(ROLE_CONFIG[role].template_name);
     if (sheet) workbook.removeWorksheet(sheet.id);
