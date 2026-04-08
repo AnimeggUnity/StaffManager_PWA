@@ -63,13 +63,39 @@ export async function generatePublicHolidayReport(
       newRow.height = row.height;
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
+        
+        // 使用深拷貝複製樣式，避免參照污染導致邊框斷線
+        if (cell.style) {
+          newCell.style = JSON.parse(JSON.stringify(cell.style));
+        }
         newCell.value = cell.value;
-        if (cell.style) newCell.style = cell.style;
       });
     });
 
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => newSheet.mergeCells(m));
+    merges.forEach((m) => {
+      newSheet.mergeCells(m);
+      
+      // 手動解析範圍 (例如 "E6:G6") 並修復邊框斷線
+      try {
+        const [start, end] = m.split(':');
+        if (start && end) {
+          const startCell = newSheet.getCell(start);
+          const endCell = newSheet.getCell(end);
+          const masterBorder = startCell.border;
+
+          if (masterBorder) {
+            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+                newSheet.getCell(r, c).border = masterBorder;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Border repair failed for merge range:', m, e);
+      }
+    });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
     // 3. 填充全域標籤

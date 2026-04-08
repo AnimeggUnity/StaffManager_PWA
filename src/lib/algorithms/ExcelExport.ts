@@ -125,14 +125,39 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         newRow.height = row.height;
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const newCell = newRow.getCell(colNumber);
+
+          // 深拷貝樣式，解決 E6 等區塊的框線斷位問題
+          if (cell.style) {
+            newCell.style = JSON.parse(JSON.stringify(cell.style));
+          }
           newCell.value = cell.value;
-          if (cell.style) newCell.style = cell.style;
         });
       });
 
       // --- 3. 同步合併儲存格 ---
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-      merges.forEach((m) => newSheet.mergeCells(m));
+      merges.forEach((m) => {
+        newSheet.mergeCells(m);
+        
+        // 框線強化修復程序
+        try {
+          const [start, end] = m.split(':');
+          if (start && end) {
+            const startCell = newSheet.getCell(start);
+            const endCell = newSheet.getCell(end);
+            const masterBorder = startCell.border;
+            if (masterBorder) {
+              for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+                for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+                  newSheet.getCell(r, c).border = masterBorder;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // 靜默處理單一合併區域修復失敗
+        }
+      });
 
       // --- 4. 同步頁面佈局 ---
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
