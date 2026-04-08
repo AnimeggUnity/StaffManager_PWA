@@ -24,6 +24,7 @@ interface StaffState {
   // 手動加班相關
   manualRules: ManualOvertime;
   setManualRules: (rules: ManualOvertime) => Promise<void>;
+  removeManualRule: (index: number) => Promise<void>;
   applyManualRules: () => Promise<void>;
   
   addBulkOvertime: (record: { date: string, reason: string, sh: string, sm: string, eh: string, em: string, shift: '全部' | '早班' | '晚班' }) => Promise<void>;
@@ -124,6 +125,35 @@ export const useStaffStore = create<StaffState>((setStore) => ({
   setManualRules: async (rules) => {
     setStore({ manualRules: rules });
     await set('manualRules', rules);
+  },
+
+  removeManualRule: async (index) => {
+    const { staffData, manualRules } = useStaffStore.getState();
+    const ruleToRemove = manualRules.records[index];
+    if (!ruleToRemove) return;
+
+    // 1. 更新規則清單
+    const updatedRules = {
+      records: manualRules.records.filter((_, i) => i !== index)
+    };
+    setStore({ manualRules: updatedRules });
+    await set('manualRules', updatedRules);
+
+    // 2. 如果目前已有資料，連動刪除對應的加班紀錄
+    if (staffData) {
+      const newPeople = JSON.parse(JSON.stringify(staffData.people));
+      Object.keys(newPeople).forEach(id => {
+        const person = newPeople[id];
+        // 唯有班別符合、日期符合、事由符合，且標記為 isManual 的紀錄才會被移除
+        person.records = person.records.filter((r: any) => 
+          !(r.isManual === true && r.date === ruleToRemove.date && r.reason === ruleToRemove.reason)
+        );
+      });
+
+      const newData = { ...staffData, people: newPeople };
+      setStore({ staffData: newData });
+      await set('staffData', newData);
+    }
   },
 
   applyManualRules: async () => {

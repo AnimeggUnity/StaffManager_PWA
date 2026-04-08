@@ -9,7 +9,7 @@ interface ManualOvertimeModalProps {
 }
 
 export function ManualOvertimeModal({ isOpen, onClose }: ManualOvertimeModalProps) {
-  const { manualRules, setManualRules, applyManualRules, staffData } = useStaffStore();
+  const { manualRules, setManualRules, removeManualRule, applyManualRules, staffData } = useStaffStore();
   const [newRule, setNewRule] = useState({
     date: '',
     shift: '早班' as '早班' | '晚班',
@@ -38,11 +38,8 @@ export function ManualOvertimeModal({ isOpen, onClose }: ManualOvertimeModalProp
     setNewRule({ ...newRule, date: '', reason: '' });
   };
 
-  const handleDeleteRule = (index: number) => {
-    const updatedRules = {
-      records: manualRules.records.filter((_, i) => i !== index)
-    };
-    setManualRules(updatedRules);
+  const handleDeleteRule = async (index: number) => {
+    await removeManualRule(index);
   };
 
   const handleApply = async () => {
