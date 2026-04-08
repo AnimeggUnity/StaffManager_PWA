@@ -36,7 +36,7 @@ function isOffDay(date: Date, rules: SpecialRules | null): boolean {
 
 export async function generateDriveBonusReport(staffData: StaffData, appConfig: AppConfig | null, rules: SpecialRules | null): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
-  const response = await fetch(`${baseUrl}templates/drivebonus_template.xlsx`);
+  const response = await fetch(`${baseUrl}templates/drivebonus_template_v2.xlsx`);
   if (!response.ok) throw new Error("找不到獎金清冊模板");
   const arrayBuffer = await response.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
