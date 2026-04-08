@@ -171,9 +171,7 @@ export function OvertimeProcessing() {
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">
-                    <button className="text-xs font-bold text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-all">
-                       + 新增紀錄
-                    </button>
+                    {/* 新增紀錄功能暫不開發 */}
                   </td>
                 </tr>
               ))}
