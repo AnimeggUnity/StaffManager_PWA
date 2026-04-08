@@ -156,7 +156,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       merges.forEach((m) => {
         newSheet.mergeCells(m);
         
-        // 框線強化修復程序 (精準 1:1 模板同步版 - 解決 E2:H3 斷線)
+        // 框線強化修復程序 (1:1 模板同步 + 聯集修復版 - 解決 C4 繼承斷線)
         try {
           const [start, end] = m.split(':');
           if (start && end) {
@@ -165,9 +165,22 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             
             for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
               for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                const templateCell = templateSheet.getCell(r, c);
-                if (templateCell.border) {
-                  newSheet.getCell(r, c).border = { ...templateCell.border };
+                const tRow = templateSheet.getRow(r);
+                const tCol = templateSheet.getColumn(c);
+                const tCell = templateSheet.getCell(r, c);
+                
+                // 聯集邊框：儲存格 > 整列 > 整欄
+                const combinedBorder: Partial<ExcelJS.Borders> = {
+                  top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
+                  left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
+                  bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
+                  right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
+                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+                };
+
+                const nCell = newSheet.getCell(r, c);
+                if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
+                  nCell.border = combinedBorder as ExcelJS.Borders;
                 }
               }
             }

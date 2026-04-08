@@ -93,7 +93,7 @@ export async function generatePublicHolidayReport(
     merges.forEach((m) => {
       newSheet.mergeCells(m);
       
-      // 精準修復：遍歷合併區域，從模板中 1:1 還原每個位置的邊框 (解決 E2:H3 斷線問題)
+      // 框線強化修復程序 (精準 1:1 模板同步 + 聯集修復版 - 解決跨層級邊框缺失)
       try {
         const [start, end] = m.split(':');
         if (start && end) {
@@ -102,9 +102,22 @@ export async function generatePublicHolidayReport(
 
           for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
             for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-              const templateCell = templateSheet.getCell(r, c);
-              if (templateCell.border) {
-                newSheet.getCell(r, c).border = { ...templateCell.border };
+              const tRow = templateSheet.getRow(r);
+              const tCol = templateSheet.getColumn(c);
+              const tCell = templateSheet.getCell(r, c);
+              
+              // 聯集邊框：優先序為 儲存格 > 整列 > 整欄
+              const combinedBorder: Partial<ExcelJS.Borders> = {
+                top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
+                left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
+                bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
+                right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
+                diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+              };
+
+              const nCell = newSheet.getCell(r, c);
+              if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
+                nCell.border = combinedBorder as ExcelJS.Borders;
               }
             }
           }
