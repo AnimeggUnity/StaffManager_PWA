@@ -26,7 +26,6 @@ function calculateHours(record: TimeRecord): number {
 
 export async function generateExcelReport(staffData: StaffData, appConfig: AppConfig | null): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
-  // 保持 Cache Buster 確保拿到最新樣板
   const response = await fetch(`${baseUrl}templates/overtime_template.xlsx?v=${Date.now()}`);
   if (!response.ok) throw new Error("找不到 Excel 模板");
   const arrayBuffer = await response.arrayBuffer();
@@ -36,7 +35,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
   const templateSheet = workbook.getWorksheet(1);
   if (!templateSheet) throw new Error("模板內容錯誤");
 
-  // 1. 抓取標籤樣板 (Tag Discovery)
+  // 1. 抓取標籤樣板
   const globalTags: Array<{ r: number, c: number, template: string }> = [];
   const recordTags: Array<{ r: number, c: number, template: string }> = [];
 
@@ -56,13 +55,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
   const rocYear = (appConfig?.roc_year || (new Date().getFullYear() - 1911)).toString();
   const applicationDate = calculateLastWorkingDay(staffData.month);
 
-  // 2. 總表實作 (橫向展開)
+  // 2. 總表實作 (極簡化版：只加「司機」欄位)
   const summarySheet = workbook.addWorksheet("加班明細", { properties: { tabColor: { argb: 'FF2F5597' } } });
   const peopleSorted = Object.values(staffData.people);
   const maxRecords = Math.max(...peopleSorted.map(p => p.records.length), 0);
   
-  // 擴充表頭：加入班別與職稱
-  const header = ["工號", "姓名", "班別", "職稱/身份"];
+  // 極簡表頭
+  const header = ["工號", "姓名", "司機"];
   for (let i = 1; i <= maxRecords; i++) header.push(`日期${i}`, `地點${i}`);
   summarySheet.addRow(header);
   
@@ -75,23 +74,20 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
     cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
   });
 
-  // 設定欄寬
-  summarySheet.getColumn(1).width = 10; // 工號
-  summarySheet.getColumn(2).width = 12; // 姓名
-  summarySheet.getColumn(3).width = 10; // 班別
-  summarySheet.getColumn(4).width = 18; // 職稱/身份
+  summarySheet.getColumn(1).width = 10;
+  summarySheet.getColumn(2).width = 12;
+  summarySheet.getColumn(3).width = 10; // 司機欄位
   for (let i = 0; i < maxRecords; i++) {
-    summarySheet.getColumn(5 + i*2).width = 10;
-    summarySheet.getColumn(6 + i*2).width = 14;
+    summarySheet.getColumn(4 + i*2).width = 10;
+    summarySheet.getColumn(5 + i*2).width = 14;
   }
 
   peopleSorted.forEach((person, idx) => {
     const empId = person.header.emp_id;
-    // 司機識別 (簡化版：只顯示「司機」)
     const isDriver = !!staffData.drivers?.[empId];
-    const roleText = isDriver ? "司機" : (person.header.title || "");
     
-    const rowData = [empId, person.header.name, person.header.shift || "", roleText];
+    // rowData = [工號, 姓名, 司機標註]
+    const rowData = [empId, person.header.name, isDriver ? "司機" : ""];
     person.records.forEach(r => rowData.push(r.date, r.reason));
     
     const row = summarySheet.addRow(rowData);
@@ -100,14 +96,14 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
        if (isEven) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6F7FB' } };
-       if (colNum <= 4 || (colNum >= 5 && (colNum - 5) % 2 === 0)) cell.font = { bold: true };
+       if (colNum <= 3 || (colNum >= 4 && (colNum - 4) % 2 === 0)) cell.font = { bold: true };
     });
   });
   
-  // 凍結前 4 欄
-  summarySheet.views = [{ state: 'frozen', xSplit: 4, ySplit: 1 }];
+  // 凍結前 3 欄
+  summarySheet.views = [{ state: 'frozen', xSplit: 3, ySplit: 1 }];
 
-  // 3. 員工分頁
+  // 3. 員工分頁 (維持高品質同步)
   for (const person of peopleSorted) {
     const chunks: TimeRecord[][] = [];
     if (person.records.length === 0) {
@@ -122,7 +118,6 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       const sheetName = chunks.length > 1 ? `${person.header.emp_id}_${pageIdx + 1}` : person.header.emp_id;
       const newSheet = workbook.addWorksheet(sheetName);
 
-      // --- 1. 同步欄位屬性 ---
       if (templateSheet.columns) {
         templateSheet.columns.forEach((col, idx) => {
           const nCol = newSheet.getColumn(idx + 1);
@@ -137,7 +132,6 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       }
 
-      // --- 2. 同步內容與樣式 ---
       templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
         const newRow = newSheet.getRow(rowNumber);
         newRow.height = row.height;
@@ -162,17 +156,11 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
       // 填充全域標籤
-      const empId = person.header.emp_id;
-      const isDriver = !!staffData.drivers?.[empId];
-      const roleText = isDriver ? "司機" : (person.header.title || "");
-
       const globalValues: Record<string, string> = {
         name: person.header.name,
-        emp_id: empId,
+        emp_id: person.header.emp_id,
         year: rocYear,
-        month: staffData.month,
-        shift: person.header.shift || "",
-        title: roleText
+        month: staffData.month
       };
       
       globalTags.forEach(tag => {
@@ -236,7 +224,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
            cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
       }));
 
-      // --- 5. 同步合併儲存格與邊框修復 ---
+      // --- 5. 同步合併儲存格與最終邊框修復 ---
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
       merges.forEach((m) => { newSheet.mergeCells(m); });
 
