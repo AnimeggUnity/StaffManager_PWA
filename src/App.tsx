@@ -8,6 +8,7 @@ import { VehicleManagement } from './pages/VehicleManagement';
 import { Settings } from './pages/Settings';
 import { StaffManagement } from './pages/StaffManagement';
 import { useStaffStore } from './store/useStaffStore';
+import PWAPrompt from './components/PWAPrompt';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -46,6 +47,7 @@ function App() {
           </div>
         </main>
       </div>
+      <PWAPrompt />
     </div>
   );
 }
