@@ -157,36 +157,21 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       }
     }
 
-    // --- 3. 最終步驟：合併儲存格與聯集邊框修復 (防止資料覆蓋樣式) ---
+    // --- 3. 最終步驟：合併儲存格與聯集邊框修復 (確保 C3 上框線等細節不丟失)
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => {
-      newSheet.mergeCells(m);
-      try {
-        const [start, end] = m.split(':');
-        if (start && end) {
-          const startCell = templateSheet.getCell(start);
-          const endCell = templateSheet.getCell(end);
-          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-              const tRow = templateSheet.getRow(r);
-              const tCol = templateSheet.getColumn(c);
-              const tCell = templateSheet.getCell(r, c);
-              const combinedBorder: Partial<ExcelJS.Borders> = {
-                top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
-                left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
-                bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
-                right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
-              };
-              const nCell = newSheet.getCell(r, c);
-              if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
-                nCell.border = combinedBorder as ExcelJS.Borders;
-              }
-            }
-          }
+    merges.forEach((m) => { newSheet.mergeCells(m); });
+
+    // --- 終極邊框同步 pass (確保 C3 上框線等細節不丟失) ---
+    templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (cell.border) {
+          newSheet.getRow(rowNumber).getCell(colNumber).border = JSON.parse(JSON.stringify(cell.border));
         }
-      } catch (e) { /* ignore */ }
+      });
     });
+
+    const shift = staffData.people[empId]?.header.shift;
+    newSheet.properties.tabColor = { argb: shift === '早班' ? 'FF00B050' : 'FF4472C4' };
 
     newSheet.views = [{ zoomScale: 57 }];
   }
