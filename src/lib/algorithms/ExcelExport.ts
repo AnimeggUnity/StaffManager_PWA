@@ -26,6 +26,7 @@ function calculateHours(record: TimeRecord): number {
 
 export async function generateExcelReport(staffData: StaffData, appConfig: AppConfig | null): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
+  // 保持 Cache Buster 確保拿到最新樣板
   const response = await fetch(`${baseUrl}templates/overtime_template.xlsx?v=${Date.now()}`);
   if (!response.ok) throw new Error("找不到 Excel 模板");
   const arrayBuffer = await response.arrayBuffer();
@@ -59,9 +60,12 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
   const summarySheet = workbook.addWorksheet("加班明細", { properties: { tabColor: { argb: 'FF2F5597' } } });
   const peopleSorted = Object.values(staffData.people);
   const maxRecords = Math.max(...peopleSorted.map(p => p.records.length), 0);
-  const header = ["工號", "姓名"];
+  
+  // 擴充表頭：加入班別與職稱
+  const header = ["工號", "姓名", "班別", "職稱/身份"];
   for (let i = 1; i <= maxRecords; i++) header.push(`日期${i}`, `地點${i}`);
   summarySheet.addRow(header);
+  
   const headerRow = summarySheet.getRow(1);
   headerRow.height = 22;
   headerRow.eachCell(cell => {
@@ -70,32 +74,44 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
     cell.alignment = { horizontal: 'center', vertical: 'middle' };
     cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
   });
-  summarySheet.getColumn(1).width = 10;
-  summarySheet.getColumn(2).width = 12;
+
+  // 設定欄寬
+  summarySheet.getColumn(1).width = 10; // 工號
+  summarySheet.getColumn(2).width = 12; // 姓名
+  summarySheet.getColumn(3).width = 10; // 班別
+  summarySheet.getColumn(4).width = 18; // 職稱/身份
   for (let i = 0; i < maxRecords; i++) {
-    summarySheet.getColumn(3 + i*2).width = 10;
-    summarySheet.getColumn(4 + i*2).width = 14;
+    summarySheet.getColumn(5 + i*2).width = 10;
+    summarySheet.getColumn(6 + i*2).width = 14;
   }
+
   peopleSorted.forEach((person, idx) => {
-    const rowData = [person.header.emp_id, person.header.name];
+    const empId = person.header.emp_id;
+    // 司機識別 (簡化版：只顯示「司機」)
+    const isDriver = !!staffData.drivers?.[empId];
+    const roleText = isDriver ? "司機" : (person.header.title || "");
+    
+    const rowData = [empId, person.header.name, person.header.shift || "", roleText];
     person.records.forEach(r => rowData.push(r.date, r.reason));
+    
     const row = summarySheet.addRow(rowData);
     const isEven = (idx + 1) % 2 === 0;
     row.eachCell((cell, colNum) => {
        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
        if (isEven) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6F7FB' } };
-       if (colNum === 1 || (colNum >= 3 && (colNum - 3) % 2 === 0)) cell.font = { bold: true };
+       if (colNum <= 4 || (colNum >= 5 && (colNum - 5) % 2 === 0)) cell.font = { bold: true };
     });
   });
-  summarySheet.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+  
+  // 凍結前 4 欄
+  summarySheet.views = [{ state: 'frozen', xSplit: 4, ySplit: 1 }];
 
-  // 3. 員工分頁 (高品質手動還原)
+  // 3. 員工分頁
   for (const person of peopleSorted) {
-    // 即使沒有紀錄也要產出一頁（全空白模式）
     const chunks: TimeRecord[][] = [];
     if (person.records.length === 0) {
-      chunks.push([]); // 生成一個空的 chunk
+      chunks.push([]); 
     } else {
       for (let i = 0; i < person.records.length; i += 12) {
         chunks.push(person.records.slice(i, i + 12));
@@ -110,13 +126,9 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       if (templateSheet.columns) {
         templateSheet.columns.forEach((col, idx) => {
           const nCol = newSheet.getColumn(idx + 1);
-          if (idx + 1 === 13) {
-            nCol.width = 22.71; 
-          } else if (col.width) {
-            nCol.width = col.width + 1; 
-          }
+          if (idx + 1 === 13) nCol.width = 22.71; 
+          else if (col.width) nCol.width = col.width + 1; 
           nCol.hidden = col.hidden;
-          // 同步整欄樣式 (繼承屬性)
           if (col.font) nCol.font = { ...col.font };
           if (col.fill) nCol.fill = { ...col.fill } as any;
           if (col.alignment) nCol.alignment = { ...col.alignment };
@@ -125,21 +137,17 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       }
 
-      // --- 2. 同步行高、樣式與內容 ---
+      // --- 2. 同步內容與樣式 ---
       templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
         const newRow = newSheet.getRow(rowNumber);
         newRow.height = row.height;
-        // 同步整列樣式 (解決 C4 框線消失的關鍵：繼承整列邊框)
         if (row.font) newRow.font = { ...row.font };
         if (row.fill) newRow.fill = { ...row.fill } as any;
         if (row.alignment) newRow.alignment = { ...row.alignment };
         if (row.border) newRow.border = { ...row.border };
-        if (row.numFmt) newRow.numFmt = row.numFmt;
 
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const newCell = newRow.getCell(colNumber);
-
-          // 改用精準屬性賦值，徹底解決邊框細節丟失問題 (如合併後 E6 的邊界處理)
           if (cell.style) {
             if (cell.font) newCell.font = { ...cell.font };
             if (cell.fill) newCell.fill = { ...cell.fill } as any;
@@ -151,16 +159,22 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       });
 
-      // --- 4. 同步頁面佈局 ---
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
       // 填充全域標籤
+      const empId = person.header.emp_id;
+      const isDriver = !!staffData.drivers?.[empId];
+      const roleText = isDriver ? "司機" : (person.header.title || "");
+
       const globalValues: Record<string, string> = {
         name: person.header.name,
-        emp_id: person.header.emp_id,
+        emp_id: empId,
         year: rocYear,
-        month: staffData.month
+        month: staffData.month,
+        shift: person.header.shift || "",
+        title: roleText
       };
+      
       globalTags.forEach(tag => {
         const cell = newSheet.getRow(tag.r).getCell(tag.c);
         let content = tag.template;
@@ -170,14 +184,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         cell.value = content;
       });
 
-      // 填充加班槽位 (1-12 槽)
+      // 填充加班槽位
       for (let slotIdx = 0; slotIdx < 12; slotIdx++) {
         const record = chunk[slotIdx];
         const rowOffset = slotIdx * 2;
         let reps: Record<string, string>;
 
         if (record) {
-          // 模式 A: 有真實加班資料
           const hrs = calculateHours(record);
           reps = { 
             date: applicationDate, 
@@ -188,7 +201,6 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
           };
         } else if (person.records.length > 0) {
-          // 模式 B: 有加班資料的人員，其餘格子進行「自動補滿」
           const isEarly = person.header.shift === '早班';
           reps = {
             date: "", sh_day: "", reason: "", 
@@ -200,7 +212,6 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             pay_check: "■", rest_check: "□", repeat: ""
           };
         } else {
-          // 模式 C: 完全無加班資料的人員，產出「補滿 12 格但內容空白」的表
           reps = { 
             date: "", sh_day: "", reason: "", 
             sh: "", sm: "", eh: "", em: "", 
@@ -220,17 +231,15 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       }
 
-      // 清理尚未替換的標籤
       newSheet.eachRow(row => row.eachCell(cell => {
          if (typeof cell.value === 'string' && cell.value.includes('{{')) 
            cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
       }));
 
-      // --- 5. 同步合併儲存格與最終邊框修復 (後置作業，防止被前述操作覆蓋樣式) ---
+      // --- 5. 同步合併儲存格與邊框修復 ---
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
       merges.forEach((m) => { newSheet.mergeCells(m); });
 
-      // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
       const tRowCount = templateSheet.rowCount;
       const tColCount = templateSheet.columnCount;
       for (let r = 1; r <= tRowCount; r++) {
@@ -239,22 +248,18 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
           const directBorder = tCell.border || {};
           const effectiveBorder: Partial<ExcelJS.Borders> = { ...directBorder };
 
-          // 向上鄰格推斷 top border
           if (!effectiveBorder.top && r > 1) {
             const above = templateSheet.getRow(r - 1).getCell(c);
             if (above.border?.bottom) effectiveBorder.top = above.border.bottom;
           }
-          // 向下鄰格推斷 bottom border
           if (!effectiveBorder.bottom && r < tRowCount) {
             const below = templateSheet.getRow(r + 1).getCell(c);
             if (below.border?.top) effectiveBorder.bottom = below.border.top;
           }
-          // 向左鄰格推斷 left border
           if (!effectiveBorder.left && c > 1) {
             const leftCell = templateSheet.getRow(r).getCell(c - 1);
             if (leftCell.border?.right) effectiveBorder.left = leftCell.border.right;
           }
-          // 向右鄰格推斷 right border
           if (!effectiveBorder.right && c < tColCount) {
             const rightCell = templateSheet.getRow(r).getCell(c + 1);
             if (rightCell.border?.left) effectiveBorder.right = rightCell.border.left;
