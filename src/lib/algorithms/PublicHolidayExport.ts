@@ -11,7 +11,8 @@ function calculateHours(record: { start_time: string, end_time: string, hours?: 
 }
 
 export async function generatePublicHolidayReport(staffData: StaffData, appConfig: AppConfig | null): Promise<Blob> {
-  const response = await fetch('/templates/public_holiday_overtime_template.xlsx');
+  const baseUrl = import.meta.env.BASE_URL || './';
+  const response = await fetch(`${baseUrl}templates/public_holiday_overtime_template.xlsx`);
   if (!response.ok) throw new Error("找不到國定假日模板");
   const arrayBuffer = await response.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
