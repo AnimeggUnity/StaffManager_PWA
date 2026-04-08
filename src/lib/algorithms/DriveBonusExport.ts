@@ -161,14 +161,17 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
     merges.forEach((m) => { newSheet.mergeCells(m); });
 
-    // --- 終極邊框同步 pass (確保 C3 上框線等細節不丟失) ---
-    templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
-      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        if (cell.border) {
-          newSheet.getRow(rowNumber).getCell(colNumber).border = JSON.parse(JSON.stringify(cell.border));
+    // --- 終極邊框同步 pass (採用雙層 For 迴圈確保不漏掉任何空儲存格的樣式) ---
+    for (let r = 1; r <= templateSheet.rowCount; r++) {
+      const tRow = templateSheet.getRow(r);
+      for (let c = 1; c <= templateSheet.columnCount; c++) {
+        const tCell = tRow.getCell(c);
+        if (tCell.border) {
+          const nCell = newSheet.getRow(r).getCell(c);
+          nCell.border = JSON.parse(JSON.stringify(tCell.border));
         }
-      });
-    });
+      }
+    }
 
     const shift = staffData.people[empId]?.header.shift;
     newSheet.properties.tabColor = { argb: shift === '早班' ? 'FF00B050' : 'FF4472C4' };
