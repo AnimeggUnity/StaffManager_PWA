@@ -148,7 +148,7 @@ export function OvertimeProcessing() {
                        <p className="font-bold text-slate-900">{person.header.name}</p>
                     </div>
                     <div className="mt-1 ml-4 flex flex-col space-y-0.5">
-                      <div className="flex items-center space-x-2 text-xs font-mono">
+                      <div className="flex items-center space-x-2 text-xs font-mono whitespace-nowrap">
                         <span className="text-slate-500 uppercase">{person.header.emp_id}</span>
                         <span className="text-slate-300">|</span>
                         <span className={cn(
@@ -156,6 +156,9 @@ export function OvertimeProcessing() {
                           person.header.shift === '早班' ? "text-amber-600" : "text-blue-600"
                         )}>
                           {person.header.shift}
+                          {staffData.drivers?.[person.header.emp_id] && (
+                            <span className="text-emerald-600">司機</span>
+                          )}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 font-medium">
