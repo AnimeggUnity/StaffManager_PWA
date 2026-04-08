@@ -243,12 +243,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
                 const tCol = templateSheet.getColumn(c);
                 const tCell = templateSheet.getCell(r, c);
                 
+                // 1:1 精準同步模板邊框 (優先從儲存格獲取，若無則嘗試從列/欄繼承)
                 const combinedBorder: Partial<ExcelJS.Borders> = {
                   top: tCell.border?.top || tRow.border?.top || tCol.border?.top,
                   left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
                   bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
                   right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+                  diagonal: tCell.border?.diagonal || tRow.border?.diagonal,
                 };
 
                 const nCell = newSheet.getCell(r, c);
