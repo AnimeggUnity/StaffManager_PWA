@@ -80,18 +80,18 @@ export async function generatePublicHolidayReport(
     merges.forEach((m) => {
       newSheet.mergeCells(m);
       
-      // 修復合併區域邊框
+      // 精準修復：遍歷合併區域，從模板中 1:1 還原每個位置的邊框 (解決 E2:H3 斷線問題)
       try {
         const [start, end] = m.split(':');
         if (start && end) {
-          const startCell = newSheet.getCell(start);
-          const endCell = newSheet.getCell(end);
-          const masterBorder = startCell.border;
+          const startCell = templateSheet.getCell(start);
+          const endCell = templateSheet.getCell(end);
 
-          if (masterBorder) {
-            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                newSheet.getCell(r, c).border = { ...masterBorder };
+          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+              const templateCell = templateSheet.getCell(r, c);
+              if (templateCell.border) {
+                newSheet.getCell(r, c).border = { ...templateCell.border };
               }
             }
           }

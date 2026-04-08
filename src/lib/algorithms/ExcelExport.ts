@@ -143,17 +143,18 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       merges.forEach((m) => {
         newSheet.mergeCells(m);
         
-        // 框線強化修復程序：確保主儲存格的邊框完全覆蓋整個合併區域 (解決 H6 右側斷線)
+        // 框線強化修復程序 (精準 1:1 模板同步版 - 解決 E2:H3 斷線)
         try {
           const [start, end] = m.split(':');
           if (start && end) {
-            const startCell = newSheet.getCell(start);
-            const endCell = newSheet.getCell(end);
-            const masterBorder = startCell.border;
-            if (masterBorder) {
-              for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
-                for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                  newSheet.getCell(r, c).border = { ...masterBorder };
+            const startCell = templateSheet.getCell(start);
+            const endCell = templateSheet.getCell(end);
+            
+            for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+              for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+                const templateCell = templateSheet.getCell(r, c);
+                if (templateCell.border) {
+                  newSheet.getCell(r, c).border = { ...templateCell.border };
                 }
               }
             }
