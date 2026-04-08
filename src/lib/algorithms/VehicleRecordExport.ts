@@ -20,30 +20,6 @@ const TEMPLATE_CONFIG: Record<string, { sheet_name: string; date_start_row: numb
   }
 };
 
-function findTagCell(sheet: ExcelJS.Worksheet, tag: string): ExcelJS.Cell | null {
-  const target = `{{${tag}}}`;
-  let foundCell: ExcelJS.Cell | null = null;
-  sheet.eachRow(row => {
-    row.eachCell(cell => {
-      if (typeof cell.value === 'string' && cell.value.includes(target)) {
-        foundCell = cell;
-      }
-    });
-  });
-  return foundCell;
-}
-
-function replaceCellTag(cell: ExcelJS.Cell | null, tag: string, value: any) {
-  if (!cell) return;
-  const target = `{{${tag}}}`;
-  if (typeof cell.value === 'string') {
-    const valText = value === null || value === undefined ? "" : String(value);
-    cell.value = cell.value.replace(target, valText);
-  } else {
-    cell.value = value;
-  }
-}
-
 function isOffDay(date: Date, rules: SpecialRules | null): boolean {
   const mmdd = `${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
   if (rules?.manual_workdays?.includes(mmdd)) return false;
@@ -181,11 +157,13 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       } catch (e) { /* ignore */ }
     });
 
-    // 強制列印設定：固定縮放比例為 99% (依據使用者測試之最佳值)
+    // 強制列印設定：0.25邊界與單頁縮放
     newSheet.pageSetup = {
       ...JSON.parse(JSON.stringify(templateSheet.pageSetup || {})),
-      fitToPage: false,
-      scale: 99,
+      margins: { left: 0.25, right: 0.25, top: 0.25, bottom: 0.25, header: 0.3, footer: 0.3 },
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
       orientation: 'portrait'
     };
     newSheet.views = [{ zoomScale: 100 }];

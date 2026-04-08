@@ -181,6 +181,16 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       } catch (e) { /* ignore */ }
     });
 
+    // 強制列印設定：0.64cm 邊界與單頁縮放 (Fit to 1x1)
+    newSheet.pageSetup = {
+      ...JSON.parse(JSON.stringify(templateSheet.pageSetup || {})),
+      margins: { left: 0.25, right: 0.25, top: 0.25, bottom: 0.25, header: 0.3, footer: 0.3 },
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 1,
+      orientation: 'portrait'
+    };
+
     newSheet.views = [{ zoomScale: 57 }];
   }
 
