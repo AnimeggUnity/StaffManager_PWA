@@ -168,7 +168,7 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       for (let c = 1; c <= tColCount; c++) {
         const tCell = templateSheet.getRow(r).getCell(c);
         const directBorder = tCell.border || {};
-        const effectiveBorder: ExcelJS.Borders = { ...directBorder };
+        const effectiveBorder: Partial<ExcelJS.Borders> = { ...directBorder };
 
         // 向上鄰格推斷 top border
         if (!effectiveBorder.top && r > 1) {
