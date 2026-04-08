@@ -107,13 +107,43 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       newRow.height = row.height;
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
+
+        // 使用精準屬性賦值，確保邊框細節不因 JSON 序列化而遺失
+        if (cell.style) {
+          if (cell.font) newCell.font = { ...cell.font };
+          if (cell.fill) newCell.fill = { ...cell.fill } as any;
+          if (cell.alignment) newCell.alignment = { ...cell.alignment };
+          if (cell.border) newCell.border = { ...cell.border };
+          if (cell.numFmt) newCell.numFmt = cell.numFmt;
+        }
         newCell.value = cell.value;
-        if (cell.style) newCell.style = JSON.parse(JSON.stringify(cell.style)); // 斷開樣式引用
       });
     });
 
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => newSheet.mergeCells(m));
+    merges.forEach((m) => {
+      newSheet.mergeCells(m);
+      
+      // 框線強化修復程序 (1:1 模板同步)
+      try {
+        const [start, end] = m.split(':');
+        if (start && end) {
+          const startCell = templateSheet.getCell(start);
+          const endCell = templateSheet.getCell(end);
+          
+          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+              const templateCell = templateSheet.getCell(r, c);
+              if (templateCell.border) {
+                newSheet.getCell(r, c).border = { ...templateCell.border };
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // 靜默處理
+      }
+    });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
     // --- 2. 標籤替換 (對齊 Python: 僅替換特定位置，非全域替換) ---

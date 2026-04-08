@@ -85,13 +85,43 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
       newRow.height = row.height;
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
+        
+        // 使用精準屬性賦值，防止邊框細節丟失 (解決斷線問題)
+        if (cell.style) {
+          if (cell.font) newCell.font = { ...cell.font };
+          if (cell.fill) newCell.fill = { ...cell.fill } as any;
+          if (cell.alignment) newCell.alignment = { ...cell.alignment };
+          if (cell.border) newCell.border = { ...cell.border };
+          if (cell.numFmt) newCell.numFmt = cell.numFmt;
+        }
         newCell.value = cell.value;
-        if (cell.style) newCell.style = JSON.parse(JSON.stringify(cell.style));
       });
     });
 
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => newSheet.mergeCells(m));
+    merges.forEach((m) => {
+      newSheet.mergeCells(m);
+      
+      // 框線強化修復：確保合併邊界 (如 H6) 完整繼承模板框線
+      try {
+        const [start, end] = m.split(':');
+        if (start && end) {
+          const startCell = templateSheet.getCell(start);
+          const endCell = templateSheet.getCell(end);
+          
+          for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
+            for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
+              const templateCell = templateSheet.getCell(r, c);
+              if (templateCell.border) {
+                newSheet.getCell(r, c).border = { ...templateCell.border };
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // 靜默處理
+      }
+    });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
     // --- 2. 標籤與紀錄填充 (1:1) ---
