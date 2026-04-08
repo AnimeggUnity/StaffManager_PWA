@@ -118,18 +118,19 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       });
     });
 
-    newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
-
-    // --- 2. 標籤與資料填充 ---
-    const tagYear = findTagCell(newSheet, 'year');
-    const tagMonth = findTagCell(newSheet, 'month');
-    const tagPlate = findTagCell(newSheet, 'car_plate');
-    const tagOrder = findTagCell(newSheet, 'order_com');
-
-    replaceCellTag(tagYear, 'year', rocYearStr);
-    replaceCellTag(tagMonth, 'month', month);
-    replaceCellTag(tagPlate, 'car_plate', vehicle.plate);
-    replaceCellTag(tagOrder, 'order_com', vehicle.extra || "");
+    // --- 2. 標籤與資料填充 (改用全表掃描，確保處理複合字串如 '車號：{{car_plate}}') ---
+    newSheet.eachRow(row => {
+      row.eachCell(cell => {
+        if (typeof cell.value === 'string') {
+          let text = cell.value;
+          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, rocYearStr);
+          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, month.toString());
+          if (text.includes('{{car_plate}}')) text = text.replace(/\{\{car_plate\}\}/g, vehicle.plate);
+          if (text.includes('{{order_com}}')) text = text.replace(/\{\{order_com\}\}/g, vehicle.extra || "");
+          cell.value = text;
+        }
+      });
+    });
 
     const startRow = config.date_start_row;
     for (let day = 1; day <= 31; day++) {
@@ -149,7 +150,7 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       }
     }
 
-    // --- 3. 最終步驟：合併儲存格與聯集邊框修復 ---
+    // --- 3. 最終步驟：合併儲存格與聯集邊框修補 ---
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
     merges.forEach((m) => {
       newSheet.mergeCells(m);
@@ -168,7 +169,7 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
                 left: tCell.border?.left || tRow.border?.left || tCol.border?.left,
                 bottom: tCell.border?.bottom || tRow.border?.bottom || tCol.border?.bottom,
                 right: tCell.border?.right || tRow.border?.right || tCol.border?.right,
-                diagonal: tCell.border?.diagonal || tRow.border?.diagonal || tCol.border?.diagonal,
+                diagonal: tCell.border?.diagonal || tRow.border?.diagonal,
               };
               const nCell = newSheet.getCell(r, c);
               if (combinedBorder.top || combinedBorder.left || combinedBorder.bottom || combinedBorder.right) {
@@ -180,6 +181,14 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       } catch (e) { /* ignore */ }
     });
 
+    // 強制列印設定：確保寬度縮放至一頁 (Fit to One Page Width)
+    newSheet.pageSetup = {
+      ...JSON.parse(JSON.stringify(templateSheet.pageSetup || {})),
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0, // 0 代表高度自動分頁
+      orientation: 'portrait'
+    };
     newSheet.views = [{ zoomScale: 100 }];
   }
 
