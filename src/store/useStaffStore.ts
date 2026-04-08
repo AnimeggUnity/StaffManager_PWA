@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { get, set } from 'idb-keyval';
-import type { StaffData, AppConfig, SpecialRules, PublicHolidayEntry } from '../types';
+import type { StaffData, AppConfig, SpecialRules, PublicHolidayEntry, ManualOvertime } from '../types';
 
 interface StaffState {
   staffData: StaffData | null;
@@ -20,6 +20,12 @@ interface StaffState {
   loadFromIndexedDB: () => Promise<void>;
   clearData: () => Promise<void>;
   setHolidayRecords: (records: PublicHolidayEntry[]) => Promise<void>;
+  
+  // 手動加班相關
+  manualRules: ManualOvertime;
+  setManualRules: (rules: ManualOvertime) => Promise<void>;
+  applyManualRules: () => Promise<void>;
+  
   addBulkOvertime: (record: { date: string, reason: string, sh: string, sm: string, eh: string, em: string, shift: '全部' | '早班' | '晚班' }) => Promise<void>;
   clearAllRecords: () => Promise<void>;
 }
@@ -30,6 +36,7 @@ export const useStaffStore = create<StaffState>((setStore) => ({
   rules: null,
   globalSearchTerm: '', // 初始化
   targetMonth: '',
+  manualRules: { records: [] },
   isLoading: false,
   error: null,
 
@@ -58,11 +65,13 @@ export const useStaffStore = create<StaffState>((setStore) => ({
       const staffData = await get<StaffData>('staffData');
       const config = await get<AppConfig>('appConfig');
       const rules = await get<SpecialRules>('specialRules');
+      const manualRules = await get<ManualOvertime>('manualRules');
       
       setStore({ 
         staffData: staffData || null, 
         config: config || null, 
         rules: rules || null,
+        manualRules: manualRules || { records: [] },
         isLoading: false 
       });
     } catch {
@@ -110,6 +119,45 @@ export const useStaffStore = create<StaffState>((setStore) => ({
 
   setGlobalSearchTerm: (term) => {
     setStore({ globalSearchTerm: term });
+  },
+
+  setManualRules: async (rules) => {
+    setStore({ manualRules: rules });
+    await set('manualRules', rules);
+  },
+
+  applyManualRules: async () => {
+    const { staffData, manualRules } = useStaffStore.getState();
+    if (!staffData || !manualRules.records.length) return;
+
+    const newPeople = JSON.parse(JSON.stringify(staffData.people));
+    
+    manualRules.records.forEach(rule => {
+      Object.keys(newPeople).forEach(id => {
+        const person = newPeople[id];
+        if (person.header.shift === rule.shift) {
+          // 檢查是否已存在 (避免重複套用)
+          const exists = person.records.some((r: any) => r.date === rule.date && r.reason === rule.reason);
+          if (!exists) {
+            const [sh, sm] = rule.start_time.split(':');
+            const [eh, em] = rule.end_time.split(':');
+            person.records.push({
+              date: rule.date,
+              reason: rule.reason,
+              sh,
+              sm,
+              eh,
+              em,
+              manual_hours: rule.hours
+            });
+          }
+        }
+      });
+    });
+
+    const newData = { ...staffData, people: newPeople };
+    setStore({ staffData: newData });
+    await set('staffData', newData);
   },
 
   clearAllRecords: async () => {

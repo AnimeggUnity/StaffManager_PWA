@@ -4,17 +4,20 @@ import {
   Search, 
   Filter, 
   Trash2, 
+  Plus,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Employee } from '../types';
 import { cn } from '../lib/utils';
 import { generateExcelReport } from '../lib/algorithms/ExcelExport';
+import { ManualOvertimeModal } from '../components/modals/ManualOvertimeModal';
 
 export function OvertimeProcessing() {
   const { staffData, config, setStaffData, globalSearchTerm, setGlobalSearchTerm } = useStaffStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
   // 同步全局搜尋關鍵字 (關鍵連動)
   useEffect(() => {
@@ -98,6 +101,14 @@ export function OvertimeProcessing() {
             {isExporting ? "產出中..." : "匯出報表 (Excel)"}
           </button>
           
+          <button 
+            onClick={() => setIsManualModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4 mr-2 text-emerald-600" />
+            全域手動加班
+          </button>
+          
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
@@ -179,6 +190,11 @@ export function OvertimeProcessing() {
           </table>
         </div>
       </div>
+
+      <ManualOvertimeModal 
+        isOpen={isManualModalOpen} 
+        onClose={() => setIsManualModalOpen(false)} 
+      />
     </div>
   );
 }
