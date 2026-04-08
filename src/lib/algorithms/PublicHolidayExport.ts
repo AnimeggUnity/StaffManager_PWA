@@ -55,12 +55,25 @@ export async function generatePublicHolidayReport(
         if (idx + 1 === 13) nCol.width = 22.71; 
         else if (col.width) nCol.width = col.width + 1;
         nCol.hidden = col.hidden;
+        // 同步整欄樣式
+        if (col.font) nCol.font = { ...col.font };
+        if (col.fill) nCol.fill = { ...col.fill } as any;
+        if (col.alignment) nCol.alignment = { ...col.alignment };
+        if (col.border) nCol.border = { ...col.border };
+        if (col.numFmt) nCol.numFmt = col.numFmt;
       });
     }
 
     templateSheet.eachRow({ includeEmpty: true }, (row, rowNumber) => {
       const newRow = newSheet.getRow(rowNumber);
       newRow.height = row.height;
+      // 同步整列樣式
+      if (row.font) newRow.font = { ...row.font };
+      if (row.fill) newRow.fill = { ...row.fill } as any;
+      if (row.alignment) newRow.alignment = { ...row.alignment };
+      if (row.border) newRow.border = { ...row.border };
+      if (row.numFmt) newRow.numFmt = row.numFmt;
+
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
 
