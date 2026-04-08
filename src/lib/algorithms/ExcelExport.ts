@@ -192,7 +192,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
           const isEarly = person.header.shift === '早班';
           reps = {
             date: "", sh_day: "", reason: "", 
-            sh: isEarly ? "16" : "08", 
+            sh: isEarly ? "18" : "08", 
             sm: "00", 
             eh: isEarly ? "22" : "12", 
             em: "00", 
