@@ -5,19 +5,25 @@ import {
   Filter, 
   Trash2, 
   Plus,
+  Calendar,
+  Download
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import type { Employee } from '../types';
 import { cn } from '../lib/utils';
 import { generateExcelReport } from '../lib/algorithms/ExcelExport';
+import { generatePublicHolidayReport } from '../lib/algorithms/PublicHolidayExport';
 import { ManualOvertimeModal } from '../components/modals/ManualOvertimeModal';
+import { PublicHolidayModal } from '../components/modals/PublicHolidayModal';
 
 export function OvertimeProcessing() {
-  const { staffData, config, setStaffData, globalSearchTerm, setGlobalSearchTerm } = useStaffStore();
+  const { staffData, config, setStaffData, globalSearchTerm, setGlobalSearchTerm, holidayRules } = useStaffStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [isHolidayExporting, setIsHolidayExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
 
   // 同步全局搜尋關鍵字 (關鍵連動)
   useEffect(() => {
@@ -44,6 +50,25 @@ export function OvertimeProcessing() {
       setExportError(err instanceof Error ? err.message : "匯出失敗");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleHolidayExport = async () => {
+    if (!staffData || holidayRules.records.length === 0) return;
+    setIsHolidayExporting(true);
+    setExportError(null);
+    try {
+      const blob = await generatePublicHolidayReport(staffData, config, holidayRules.records);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `國定假日加班單_${staffData.month}月.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setExportError(err instanceof Error ? err.message : "假日報表匯出失敗");
+    } finally {
+      setIsHolidayExporting(false);
     }
   };
 
@@ -100,6 +125,21 @@ export function OvertimeProcessing() {
           >
             {isExporting ? "產出中..." : "匯出報表 (Excel)"}
           </button>
+
+          <button 
+            onClick={handleHolidayExport}
+            disabled={isHolidayExporting || holidayRules.records.length === 0}
+            className={cn(
+              "flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all",
+              isHolidayExporting || holidayRules.records.length === 0
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed" 
+                : "bg-amber-500 text-white hover:bg-amber-600 shadow-md shadow-amber-200"
+            )}
+            title={holidayRules.records.length === 0 ? "請先設定國定假日規則" : ""}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {isHolidayExporting ? "產出中..." : "匯出國定假日報表"}
+          </button>
           
           <button 
             onClick={() => setIsManualModalOpen(true)}
@@ -107,6 +147,14 @@ export function OvertimeProcessing() {
           >
             <Plus className="w-4 h-4 mr-2 text-emerald-600" />
             全域手動加班
+          </button>
+
+          <button 
+            onClick={() => setIsHolidayModalOpen(true)}
+            className="flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <Calendar className="w-4 h-4 mr-2 text-amber-600" />
+            國定假日管理
           </button>
           
           <div className="relative">
@@ -202,6 +250,10 @@ export function OvertimeProcessing() {
       <ManualOvertimeModal 
         isOpen={isManualModalOpen} 
         onClose={() => setIsManualModalOpen(false)} 
+      />
+      <PublicHolidayModal
+        isOpen={isHolidayModalOpen}
+        onClose={() => setIsHolidayModalOpen(false)}
       />
     </div>
   );

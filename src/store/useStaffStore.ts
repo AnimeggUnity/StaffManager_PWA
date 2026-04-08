@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { get, set } from 'idb-keyval';
-import type { StaffData, AppConfig, SpecialRules, PublicHolidayEntry, ManualOvertime } from '../types';
+import type { StaffData, AppConfig, SpecialRules, ManualOvertime } from '../types';
 
 interface StaffState {
   staffData: StaffData | null;
@@ -15,11 +15,14 @@ interface StaffState {
   setConfig: (config: AppConfig) => Promise<void>;
   setRules: (rules: SpecialRules) => Promise<void>;
   setTargetMonth: (month: string) => void;
-  globalSearchTerm: string; // 新增類型定義
-  setGlobalSearchTerm: (term: string) => void; // 新增類型定義
+  globalSearchTerm: string;
+  setGlobalSearchTerm: (term: string) => void;
   loadFromIndexedDB: () => Promise<void>;
   clearData: () => Promise<void>;
-  setHolidayRecords: (records: PublicHolidayEntry[]) => Promise<void>;
+  
+  // 國定假日加班相關
+  holidayRules: ManualOvertime;
+  setHolidayRules: (rules: ManualOvertime) => Promise<void>;
   
   // 手動加班相關
   manualRules: ManualOvertime;
@@ -38,6 +41,7 @@ export const useStaffStore = create<StaffState>((setStore) => ({
   globalSearchTerm: '', // 初始化
   targetMonth: '',
   manualRules: { records: [] },
+  holidayRules: { records: [] },
   isLoading: false,
   error: null,
 
@@ -67,12 +71,14 @@ export const useStaffStore = create<StaffState>((setStore) => ({
       const config = await get<AppConfig>('appConfig');
       const rules = await get<SpecialRules>('specialRules');
       const manualRules = await get<ManualOvertime>('manualRules');
+      const holidayRules = await get<ManualOvertime>('holidayRules');
       
       setStore({ 
         staffData: staffData || null, 
         config: config || null, 
         rules: rules || null,
         manualRules: manualRules || { records: [] },
+        holidayRules: holidayRules || { records: [] },
         isLoading: false 
       });
     } catch {
@@ -85,12 +91,9 @@ export const useStaffStore = create<StaffState>((setStore) => ({
     await set('staffData', null);
   },
 
-  setHolidayRecords: async (records) => {
-    const { staffData } = useStaffStore.getState();
-    if (!staffData) return;
-    const newData = { ...staffData, holidayRecords: records };
-    setStore({ staffData: newData });
-    await set('staffData', newData);
+  setHolidayRules: async (rules) => {
+    setStore({ holidayRules: rules });
+    await set('holidayRules', rules);
   },
 
   addBulkOvertime: async (bulkRecord) => {

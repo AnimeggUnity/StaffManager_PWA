@@ -1,16 +1,11 @@
 import ExcelJS from 'exceljs';
-import type { StaffData, AppConfig } from '../../types';
+import type { StaffData, AppConfig, ManualOvertime } from '../../types';
 
-function calculateHours(record: { start_time: string, end_time: string, hours?: number }): number {
-  if (record.hours !== undefined && record.hours !== null) return record.hours;
-  try {
-    const [sh] = record.start_time.split(':').map(Number);
-    const [eh] = record.end_time.split(':').map(Number);
-    return isNaN(eh - sh) ? 0 : eh - sh;
-  } catch { return 0; }
-}
-
-export async function generatePublicHolidayReport(staffData: StaffData, appConfig: AppConfig | null): Promise<Blob> {
+export async function generatePublicHolidayReport(
+  staffData: StaffData, 
+  appConfig: AppConfig | null,
+  holidayRecords: ManualOvertime['records']
+): Promise<Blob> {
   const baseUrl = import.meta.env.BASE_URL || './';
   const response = await fetch(`${baseUrl}templates/public_holiday_overtime_template.xlsx`);
   if (!response.ok) throw new Error("找不到國定假日模板");
@@ -39,13 +34,12 @@ export async function generatePublicHolidayReport(staffData: StaffData, appConfi
   });
 
   const rocYear = (appConfig?.roc_year || (new Date().getFullYear() - 1911)).toString();
-  const holidayRecords = staffData.holidayRecords || [];
   const people = Object.values(staffData.people);
 
   // 2. 為每個符合條件的員工生成分頁
   for (const person of people) {
     // 依據 Shift 條件篩選這名員工適用的假日紀錄
-    const filteredRecords = holidayRecords.filter(hr => 
+    const filteredRecords = holidayRecords.filter((hr: any) => 
       hr.shift === '全部' || hr.shift === person.header.shift
     );
 
@@ -54,11 +48,11 @@ export async function generatePublicHolidayReport(staffData: StaffData, appConfi
     const sheetName = person.header.emp_id;
     const newSheet = workbook.addWorksheet(sheetName);
 
-    // --- 1:1 佈局克隆 (同 ExcelExport 技術) ---
+    // --- 1:1 佈局同步 ---
     if (templateSheet.columns) {
       templateSheet.columns.forEach((col, idx) => {
         const nCol = newSheet.getColumn(idx + 1);
-        if (idx + 1 === 13) nCol.width = 22.71; // 強制 M 欄 1:1
+        if (idx + 1 === 13) nCol.width = 22.71; 
         else if (col.width) nCol.width = col.width + 1;
         nCol.hidden = col.hidden;
       });
@@ -94,7 +88,7 @@ export async function generatePublicHolidayReport(staffData: StaffData, appConfi
       cell.value = content;
     });
 
-    // 4. 填充假日紀錄 (核心：1:1 遵循 9 槽位限制)
+    // 4. 填充假日紀錄 (9 槽位限制)
     const limitedRecords = filteredRecords.slice(0, 9);
     for (let slotIdx = 0; slotIdx < 9; slotIdx++) {
       const record = limitedRecords[slotIdx];
@@ -102,17 +96,17 @@ export async function generatePublicHolidayReport(staffData: StaffData, appConfi
       
       let reps: Record<string, string>;
       if (!record) {
-        reps = { date: "　　", sh_day: "　", reason: "　　", sh: "　", sm: "　", eh: "　", em: "　", 
-                 day_total: "　　", pay_hours: "　", rest_hours: "　", pay_check: "□", rest_check: "□" };
+        reps = { date: "", sh_day: "", reason: "", sh: "", sm: "", eh: "", em: "", 
+                 day_total: "", pay_hours: "", rest_hours: "", pay_check: "□", rest_check: "□" };
       } else {
         const [sh, sm] = record.start_time.split(':');
         const [eh, em] = record.end_time.split(':');
-        const hrs = calculateHours(record);
+        const hrs = record.hours || 0;
         reps = { 
-          date: record.date.substring(0, 2) + '/' + record.date.substring(2), 
-          sh_day: record.date.substring(2),
+          date: record.date.length === 4 ? `${record.date.substring(0, 2)}/${record.date.substring(2)}` : record.date, 
+          sh_day: record.date.length === 4 ? record.date.substring(2) : record.date,
           reason: record.reason,
-          sh: sh, sm: sm, eh: eh, em: em,
+          sh: sh || "", sm: sm || "", eh: eh || "", em: em || "",
           day_total: hrs.toString(), pay_hours: hrs.toString(), rest_hours: "", 
           pay_check: hrs > 0 ? "■" : "□", rest_check: "□"
         };
@@ -129,7 +123,7 @@ export async function generatePublicHolidayReport(staffData: StaffData, appConfi
       });
     }
 
-    // 5. 清理殘留標籤
+    // 5. 清理標籤
     newSheet.eachRow(row => row.eachCell(cell => {
        if (typeof cell.value === 'string' && cell.value.includes('{{')) 
          cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
