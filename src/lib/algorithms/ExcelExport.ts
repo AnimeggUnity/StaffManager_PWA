@@ -183,7 +183,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             pay_check: "■", rest_check: "□", repeat: ""
           };
         } else {
-          // 模式 C: 完全無加班資料的人員，產出全空白表
+          // 模式 C: 完全無加班資料的人員，產出「補滿 12 格但內容空白」的表
           reps = { 
             date: "", sh_day: "", reason: "", 
             sh: "", sm: "", eh: "", em: "", 
