@@ -142,13 +142,7 @@ export async function generatePublicHolidayReport(
       });
     }
 
-    // 5. 清理標籤
-    newSheet.eachRow(row => row.eachCell(cell => {
-       if (typeof cell.value === 'string' && cell.value.includes('{{')) 
-         cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
-    }));
-
-    newSheet.properties.tabColor = { argb: person.header.shift === '早班' ? 'FF00B050' : 'FF4472C4' };
+    newSheet.properties.tabColor = { argb: 'FFFFC000' };
   }
 
   workbook.removeWorksheet(templateSheet.id);

@@ -110,13 +110,20 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
     newSheet.eachRow((row, rowNumber) => {
       row.eachCell((cell, colNumber) => {
         if (typeof cell.value === 'string') {
-          const val = cell.value;
-          if (val.includes('{{year}}')) cell.value = val.replace('{{year}}', rocYearStr);
-          if (val.includes('{{month}}')) cell.value = val.replace('{{month}}', month.toString());
-          if (val.includes('{{date_row}}')) { dateRow = rowNumber; dateCol = colNumber; cell.value = 1; }
-          if (val.includes('{{name}}')) { nameRow = rowNumber; nameCol = colNumber; cell.value = val.replace('{{name}}', info.name); }
-          if (val.includes('{{emp_id}}')) { idRow = rowNumber; idCol = colNumber; cell.value = val.replace('{{emp_id}}', `店${empId}`); }
-          if (val.includes('{{car_plate}}')) { carRow = rowNumber; carCol = colNumber; cell.value = val.replace('{{car_plate}}', info.cars[0] || ""); }
+          let text = cell.value;
+          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, rocYearStr);
+          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, month.toString());
+          if (text.includes('{{name}}')) text = text.replace(/\{\{name\}\}/g, info.name);
+          if (text.includes('{{emp_id}}')) text = text.replace(/\{\{emp_id\}\}/g, `店${empId}`);
+          if (text.includes('{{car_plate}}')) text = text.replace(/\{\{car_plate\}\}/g, info.cars[0] || "");
+          
+          if (text.includes('{{date_row}}')) {
+            dateRow = rowNumber;
+            dateCol = colNumber;
+            cell.value = 1;
+          } else {
+            cell.value = text;
+          }
         }
       });
     });
