@@ -92,22 +92,28 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
 
   // 3. 員工分頁 (高品質手動還原)
   for (const person of peopleSorted) {
-    if (person.records.length === 0) continue;
-    const chunks = [];
-    for (let i = 0; i < person.records.length; i += 12) chunks.push(person.records.slice(i, i + 12));
+    // 即使沒有紀錄也要產出一頁（全空白模式）
+    const chunks: TimeRecord[][] = [];
+    if (person.records.length === 0) {
+      chunks.push([]); // 生成一個空的 chunk
+    } else {
+      for (let i = 0; i < person.records.length; i += 12) {
+        chunks.push(person.records.slice(i, i + 12));
+      }
+    }
 
     chunks.forEach((chunk, pageIdx) => {
       const sheetName = chunks.length > 1 ? `${person.header.emp_id}_${pageIdx + 1}` : person.header.emp_id;
       const newSheet = workbook.addWorksheet(sheetName);
 
-      // --- 強化：同步欄位屬性並加入 1 單位緩衝 (解決斷行問題) ---
+      // --- 1. 同步欄位屬性 ---
       if (templateSheet.columns) {
         templateSheet.columns.forEach((col, idx) => {
           const nCol = newSheet.getColumn(idx + 1);
           if (idx + 1 === 13) {
-            nCol.width = 22.71; // 使用者指定的 M 欄精確寬度
+            nCol.width = 22.71; 
           } else if (col.width) {
-            nCol.width = col.width + 1; // 其他欄位保留 1 單位緩衝
+            nCol.width = col.width + 1; 
           }
           nCol.hidden = col.hidden;
         });
@@ -120,7 +126,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const newCell = newRow.getCell(colNumber);
           newCell.value = cell.value;
-          if (cell.style) newCell.style = cell.style; // 直接引用樣式
+          if (cell.style) newCell.style = cell.style;
         });
       });
 
@@ -128,7 +134,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
       merges.forEach((m) => newSheet.mergeCells(m));
 
-      // --- 4. 同步頁面佈局 (Page Setup) ---
+      // --- 4. 同步頁面佈局 ---
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
 
       // 填充全域標籤
@@ -152,18 +158,40 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         const record = chunk[slotIdx];
         const rowOffset = slotIdx * 2;
         let reps: Record<string, string>;
-        if (!record) {
-          reps = { date: "　　", sh_day: "　　", reason: "　　", sh: "　", sm: "　", eh: "　", em: "　", 
-                   day_total: "　　", pay_hours: "　", rest_hours: "　", pay_check: "□", rest_check: "□", repeat: "　" };
-        } else {
+
+        if (record) {
+          // 模式 A: 有真實加班資料
           const hrs = calculateHours(record);
           reps = { 
-            date: applicationDate, sh_day: record.date.split('/')[1], reason: record.reason,
+            date: applicationDate, 
+            sh_day: record.date.split('/')[1] || "", 
+            reason: record.reason || "",
             sh: record.sh, sm: record.sm, eh: record.eh, em: record.em,
             day_total: hrs.toString(), pay_hours: hrs.toString(), rest_hours: "", 
             pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
           };
+        } else if (person.records.length > 0) {
+          // 模式 B: 有加班資料的人員，其餘格子進行「自動補滿」
+          const isEarly = person.header.shift === '早班';
+          reps = {
+            date: "", sh_day: "", reason: "", 
+            sh: isEarly ? "16" : "08", 
+            sm: "00", 
+            eh: isEarly ? "22" : "12", 
+            em: "00", 
+            day_total: "4", pay_hours: "4", rest_hours: "", 
+            pay_check: "■", rest_check: "□", repeat: ""
+          };
+        } else {
+          // 模式 C: 完全無加班資料的人員，產出全空白表
+          reps = { 
+            date: "", sh_day: "", reason: "", 
+            sh: "", sm: "", eh: "", em: "", 
+            day_total: "", pay_hours: "", rest_hours: "", 
+            pay_check: "□", rest_check: "□", repeat: "" 
+          };
         }
+
         recordTags.forEach(tag => {
           const targetRow = tag.r + rowOffset;
           const cell = newSheet.getRow(targetRow).getCell(tag.c);
@@ -175,7 +203,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         });
       }
 
-      // 清理
+      // 清理尚未替換的標籤
       newSheet.eachRow(row => row.eachCell(cell => {
          if (typeof cell.value === 'string' && cell.value.includes('{{')) 
            cell.value = cell.value.replace(/\{\{[^}]+\}\}/g, "");
