@@ -114,10 +114,10 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
           if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, rocYearStr);
           if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, month.toString());
           if (text.includes('{{name}}')) text = text.replace(/\{\{name\}\}/g, info.name);
-          if (text.includes('{{emp_id}}')) text = text.replace(/\{\{emp_id\}\}/g, `店${empId}`);
-          if (text.includes('{{car_plate}}')) text = text.replace(/\{\{car_plate\}\}/g, info.cars[0] || "");
+          if (text.includes('{{empid}}')) text = text.replace(/\{\{empid\}\}/g, `店${empId}`);
+          if (text.includes('{{carplate}}')) text = text.replace(/\{\{carplate\}\}/g, info.cars[0] || "");
           
-          if (text.includes('{{date_row}}')) {
+          if (text.includes('{{daterow}}')) {
             dateRow = rowNumber;
             dateCol = colNumber;
             cell.value = 1;
