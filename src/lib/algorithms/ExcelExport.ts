@@ -126,9 +126,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           const newCell = newRow.getCell(colNumber);
 
-          // 深拷貝樣式，解決 E6 等區塊的框線斷位問題
+          // 改用精準屬性賦值，徹底解決邊框細節丟失問題 (如合併後 E6 的邊界處理)
           if (cell.style) {
-            newCell.style = JSON.parse(JSON.stringify(cell.style));
+            if (cell.font) newCell.font = { ...cell.font };
+            if (cell.fill) newCell.fill = { ...cell.fill } as any;
+            if (cell.alignment) newCell.alignment = { ...cell.alignment };
+            if (cell.border) newCell.border = { ...cell.border };
+            if (cell.numFmt) newCell.numFmt = cell.numFmt;
           }
           newCell.value = cell.value;
         });
@@ -139,7 +143,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       merges.forEach((m) => {
         newSheet.mergeCells(m);
         
-        // 框線強化修復程序
+        // 框線強化修復程序：確保主儲存格的邊框完全覆蓋整個合併區域 (解決 H6 右側斷線)
         try {
           const [start, end] = m.split(':');
           if (start && end) {
@@ -149,13 +153,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             if (masterBorder) {
               for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
                 for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                  newSheet.getCell(r, c).border = masterBorder;
+                  newSheet.getCell(r, c).border = { ...masterBorder };
                 }
               }
             }
           }
         } catch (e) {
-          // 靜默處理單一合併區域修復失敗
+          // 靜默處理
         }
       });
 

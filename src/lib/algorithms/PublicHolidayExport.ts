@@ -63,10 +63,14 @@ export async function generatePublicHolidayReport(
       newRow.height = row.height;
       row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
         const newCell = newRow.getCell(colNumber);
-        
-        // 使用深拷貝複製樣式，避免參照污染導致邊框斷線
+
+        // 改用精準屬性賦值，避免 JSON 轉換導致的樣式細節丟失 (解決 H6 斷線問題)
         if (cell.style) {
-          newCell.style = JSON.parse(JSON.stringify(cell.style));
+          if (cell.font) newCell.font = { ...cell.font };
+          if (cell.fill) newCell.fill = { ...cell.fill } as any;
+          if (cell.alignment) newCell.alignment = { ...cell.alignment };
+          if (cell.border) newCell.border = { ...cell.border };
+          if (cell.numFmt) newCell.numFmt = cell.numFmt;
         }
         newCell.value = cell.value;
       });
@@ -76,7 +80,7 @@ export async function generatePublicHolidayReport(
     merges.forEach((m) => {
       newSheet.mergeCells(m);
       
-      // 手動解析範圍 (例如 "E6:G6") 並修復邊框斷線
+      // 修復合併區域邊框
       try {
         const [start, end] = m.split(':');
         if (start && end) {
@@ -87,13 +91,13 @@ export async function generatePublicHolidayReport(
           if (masterBorder) {
             for (let r = Number(startCell.row); r <= Number(endCell.row); r++) {
               for (let c = Number(startCell.col); c <= Number(endCell.col); c++) {
-                newSheet.getCell(r, c).border = masterBorder;
+                newSheet.getCell(r, c).border = { ...masterBorder };
               }
             }
           }
         }
       } catch (e) {
-        console.warn('Border repair failed for merge range:', m, e);
+        // 靜默處理
       }
     });
     newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
