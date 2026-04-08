@@ -13,8 +13,8 @@ export function PublicHolidayModal({ isOpen, onClose }: PublicHolidayModalProps)
     date: '',
     shift: '早班' as '早班' | '晚班',
     start_time: '08:00',
-    end_time: '12:00',
-    hours: 4,
+    end_time: '17:00',
+    hours: 8,
     reason: ''
   });
 
