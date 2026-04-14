@@ -16,7 +16,7 @@ import { parseOvertimeWord } from '../lib/algorithms/overtimeParser';
 import { cn } from '../lib/utils';
 
 export function Dashboard() {
-  const { staffData, config, isLoading, setStaffData, clearData, clearAllRecords } = useStaffStore();
+  const { staffData, config, isLoading, setStaffData, setYear, setMonth, clearData, clearAllRecords } = useStaffStore();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [messages, setMessages] = useState<string[]>([]);
@@ -169,9 +169,32 @@ export function Dashboard() {
             <div className={`p-4 rounded-2xl ${stat.bg}`}>
               <stat.icon className={`w-6 h-6 ${stat.color}`} />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-              <p className="text-3xl font-black text-slate-900">{stat.value} <span className="text-base text-slate-400 font-bold">{stat.unit}</span></p>
+              {stat.label === '民國年份' ? (
+                <div className="flex items-center">
+                  <input 
+                    type="number" 
+                    value={config?.roc_year || ''} 
+                    onChange={(e) => setYear(parseInt(e.target.value) || 0)}
+                    className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent focus:border-purple-300 outline-none w-20 transition-all"
+                  />
+                  <span className="text-base text-slate-400 font-bold ml-1">{stat.unit}</span>
+                </div>
+              ) : stat.label === '目前月份' ? (
+                <div className="flex items-center">
+                  <input 
+                    type="text" 
+                    value={staffData?.month || ''} 
+                    placeholder="未載入"
+                    onChange={(e) => setMonth(e.target.value)}
+                    className="text-3xl font-black text-slate-900 bg-transparent border-b-2 border-transparent focus:border-emerald-300 outline-none w-24 transition-all placeholder:text-slate-300"
+                  />
+                  <span className="text-base text-slate-400 font-bold ml-1">{stat.unit}</span>
+                </div>
+              ) : (
+                <p className="text-3xl font-black text-slate-900">{stat.value} <span className="text-base text-slate-400 font-bold">{stat.unit}</span></p>
+              )}
             </div>
           </div>
         ))}

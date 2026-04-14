@@ -19,6 +19,8 @@ interface StaffState {
   setGlobalSearchTerm: (term: string) => void;
   loadFromIndexedDB: () => Promise<void>;
   clearData: () => Promise<void>;
+  setYear: (year: number) => Promise<void>;
+  setMonth: (month: string) => Promise<void>;
   
   // 國定假日加班相關
   holidayRules: ManualOvertime;
@@ -123,6 +125,22 @@ export const useStaffStore = create<StaffState>((setStore) => ({
 
   setGlobalSearchTerm: (term) => {
     setStore({ globalSearchTerm: term });
+  },
+
+  setYear: async (year) => {
+    const { config } = useStaffStore.getState();
+    const newConfig = { ...config, roc_year: year } as AppConfig;
+    setStore({ config: newConfig });
+    await set('appConfig', newConfig);
+  },
+
+  setMonth: async (month) => {
+    const { staffData } = useStaffStore.getState();
+    if (staffData) {
+      const newData = { ...staffData, month };
+      setStore({ staffData: newData });
+      await set('staffData', newData);
+    }
   },
 
   setManualRules: async (rules) => {

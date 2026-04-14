@@ -13,7 +13,7 @@ import { generatePublicHolidayReport } from '../lib/algorithms/PublicHolidayExpo
 import { PublicHolidayModal } from '../components/modals/PublicHolidayModal';
 
 export function PublicHoliday() {
-  const { staffData, config, holidayRules, setHolidayRules } = useStaffStore();
+  const { staffData, config, holidayRules, setHolidayRules, setYear, setMonth } = useStaffStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,14 +96,45 @@ export function PublicHoliday() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full tracking-widest uppercase">
-              Holiday Manager
-            </span>
+        <div className="flex flex-col md:flex-row md:items-center gap-6">
+          <div>
+            <div className="flex items-center space-x-3 mb-2">
+              <span className="px-3 py-1 bg-indigo-600 text-white text-[10px] font-black rounded-full tracking-widest uppercase">
+                Holiday Manager
+              </span>
+            </div>
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight">國定假日處理</h1>
+            <p className="text-slate-500 mt-1 font-medium text-sm">系統會根據班別自動帶入 08-17 (早) 或 13-22 (晚) 之 8 小時紀錄</p>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">國定假日處理</h1>
-          <p className="text-slate-500 mt-1 font-medium">系統會根據班別自動帶入 08-17 (早) 或 13-22 (晚) 之 8 小時紀錄</p>
+
+          <div className="flex items-center gap-4 bg-white p-3 px-4 rounded-2xl border border-slate-100 shadow-sm self-start md:self-center">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">民國年份</span>
+              <div className="flex items-center space-x-1">
+                <input 
+                  type="number" 
+                  value={config?.roc_year || ''} 
+                  onChange={(e) => setYear(parseInt(e.target.value) || 0)}
+                  className="text-lg font-black text-indigo-600 bg-slate-50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-100 w-16 text-center"
+                />
+                <span className="text-xs font-bold text-slate-400">年</span>
+              </div>
+            </div>
+            <div className="w-px h-8 bg-slate-100 mx-1"></div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">報表月份</span>
+              <div className="flex items-center space-x-1">
+                <input 
+                  type="text" 
+                  value={staffData?.month || ''} 
+                  onChange={(e) => setMonth(e.target.value)}
+                  placeholder="05"
+                  className="text-lg font-black text-indigo-600 bg-slate-50 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-100 w-16 text-center"
+                />
+                <span className="text-xs font-bold text-slate-400">月</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
