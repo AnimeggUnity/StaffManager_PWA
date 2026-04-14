@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, AppConfig, SpecialRules } from '../../types';
+import { getCellText, replaceTags } from '../utils/excelUtils';
 
 const GRAY_FILL: ExcelJS.Fill = {
   type: 'pattern',
@@ -97,13 +98,15 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
     // --- 2. 標籤與資料填充 (改用全表掃描，確保處理複合字串如 '車號：{{car_plate}}') ---
     newSheet.eachRow(row => {
       row.eachCell(cell => {
-        if (typeof cell.value === 'string') {
-          let text = cell.value;
-          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, rocYearStr);
-          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, month.toString());
-          if (text.includes('{{car_plate}}')) text = text.replace(/\{\{car_plate\}\}/g, vehicle.plate);
-          if (text.includes('{{order_com}}')) text = text.replace(/\{\{order_com\}\}/g, vehicle.extra || "");
-          cell.value = text;
+        const text = getCellText(cell.value);
+        if (text.includes('{{')) {
+          const replacements = {
+            year: rocYearStr,
+            month: month.toString(),
+            car_plate: vehicle.plate,
+            order_com: vehicle.extra || ""
+          };
+          cell.value = replaceTags(cell.value, replacements);
         }
       });
     });

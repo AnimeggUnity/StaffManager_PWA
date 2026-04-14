@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, AppConfig, SpecialRules } from '../../types';
+import { getCellText, replaceTags } from '../utils/excelUtils';
 
 const GRAY_FILL: ExcelJS.Fill = {
   type: 'pattern',
@@ -109,20 +110,22 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
     
     newSheet.eachRow((row, rowNumber) => {
       row.eachCell((cell, colNumber) => {
-        if (typeof cell.value === 'string') {
-          let text = cell.value;
-          if (text.includes('{{year}}')) text = text.replace(/\{\{year\}\}/g, `    ${rocYearStr}    `);
-          if (text.includes('{{month}}')) text = text.replace(/\{\{month\}\}/g, `  ${month.toString()}  `);
-          if (text.includes('{{name}}')) text = text.replace(/\{\{name\}\}/g, info.name);
-          if (text.includes('{{emp_id}}')) text = text.replace(/\{\{emp_id\}\}/g, `店${empId}`);
-          if (text.includes('{{car_plate}}')) text = text.replace(/\{\{car_plate\}\}/g, info.cars[0] || "");
-          
+        const text = getCellText(cell.value);
+        if (text.includes('{{')) {
+          const replacements = {
+            year: `    ${rocYearStr}    `,
+            month: `  ${month.toString()}  `,
+            name: info.name,
+            emp_id: `店${empId}`,
+            car_plate: info.cars[0] || ""
+          };
+
           if (text.includes('{{date_row}}')) {
             dateRow = rowNumber;
             dateCol = colNumber;
             cell.value = 1;
           } else {
-            cell.value = text;
+            cell.value = replaceTags(cell.value, replacements);
           }
         }
       });

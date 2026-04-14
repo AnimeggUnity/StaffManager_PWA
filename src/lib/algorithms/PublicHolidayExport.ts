@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, AppConfig, ManualOvertime } from '../../types';
+import { getCellText, replaceTags } from '../utils/excelUtils';
 
 export async function generatePublicHolidayReport(
   staffData: StaffData, 
@@ -22,8 +23,8 @@ export async function generatePublicHolidayReport(
 
   templateSheet.eachRow((row, rowNumber) => {
     row.eachCell((cell, colNumber) => {
-      const val = cell.value;
-      if (typeof val === 'string' && val.includes('{{')) {
+      const val = getCellText(cell.value);
+      if (val.includes('{{')) {
         if (val.includes('_n')) {
           recordTags.push({ r: rowNumber, c: colNumber, template: val });
         } else {
@@ -100,11 +101,7 @@ export async function generatePublicHolidayReport(
     };
     globalTags.forEach(tag => {
       const cell = newSheet.getRow(tag.r).getCell(tag.c);
-      let content = tag.template;
-      Object.entries(globalValues).forEach(([k, v]) => {
-        content = content.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || "");
-      });
-      cell.value = content;
+      cell.value = replaceTags(cell.value, globalValues);
     });
 
     // 4. 填充假日紀錄 (9 槽位限制)
@@ -116,7 +113,7 @@ export async function generatePublicHolidayReport(
       let reps: Record<string, string>;
       if (!record) {
         reps = { date: "", sh_day: "", reason: "", sh: "", sm: "", eh: "", em: "", 
-                 day_total: "", pay_hours: "", rest_hours: "", pay_check: "□", rest_check: "□" };
+                 day_total: "", pay_hours: "", rest_hours: "", pay_check: "□", rest_check: "□", repeat: "" };
       } else {
         const [sh, sm] = record.start_time.split(':');
         const [eh, em] = record.end_time.split(':');
@@ -127,18 +124,21 @@ export async function generatePublicHolidayReport(
           reason: record.reason,
           sh: sh || "", sm: sm || "", eh: eh || "", em: em || "",
           day_total: hrs.toString(), pay_hours: hrs.toString(), rest_hours: "", 
-          pay_check: hrs > 0 ? "■" : "□", rest_check: "□"
+          pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
         };
       }
 
       recordTags.forEach(tag => {
         const targetRow = tag.r + rowOffset;
         const cell = newSheet.getRow(targetRow).getCell(tag.c);
-        let content = tag.template;
+        
+        // 建立專屬此 slot 的替換表
+        const slotReps: Record<string, string> = {};
         Object.entries(reps).forEach(([k, v]) => {
-          content = content.replace(new RegExp(`\\{\\{${k}_n\\}\\}`, 'g'), v);
+          slotReps[`${k}_n`] = v;
         });
-        cell.value = content;
+        
+        cell.value = replaceTags(cell.value, slotReps);
       });
     }
 

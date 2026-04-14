@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, TimeRecord, AppConfig } from '../../types';
+import { getCellText, replaceTags } from '../utils/excelUtils';
 
 function calculateLastWorkingDay(monthStr: string): string {
   try {
@@ -41,8 +42,8 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
 
   templateSheet.eachRow((row, rowNumber) => {
     row.eachCell((cell, colNumber) => {
-      const val = cell.value;
-      if (typeof val === 'string' && val.includes('{{')) {
+      const val = getCellText(cell.value);
+      if (val.includes('{{')) {
         if (val.includes('_n')) {
           recordTags.push({ r: rowNumber, c: colNumber, template: val });
         } else {
@@ -156,11 +157,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       
       globalTags.forEach(tag => {
         const cell = newSheet.getRow(tag.r).getCell(tag.c);
-        let content = tag.template;
-        Object.entries(globalValues).forEach(([k, v]) => {
-          content = content.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || "");
-        });
-        cell.value = content;
+        cell.value = replaceTags(cell.value, globalValues);
       });
 
       // 填充加班槽位
@@ -202,11 +199,13 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         recordTags.forEach(tag => {
           const targetRow = tag.r + rowOffset;
           const cell = newSheet.getRow(targetRow).getCell(tag.c);
-          let content = tag.template;
+          
+          const slotReps: Record<string, string> = {};
           Object.entries(reps).forEach(([k, v]) => {
-            content = content.replace(new RegExp(`\\{\\{${k}_n\\}\\}`, 'g'), v);
+            slotReps[`${k}_n`] = v;
           });
-          cell.value = content;
+          
+          cell.value = replaceTags(cell.value, slotReps);
         });
       }
 
