@@ -161,6 +161,16 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       });
 
       // 填充加班槽位
+      const distinctRows = [...new Set(recordTags.map(t => t.r))].sort((a, b) => a - b);
+      const baseRows: number[] = [];
+      if (distinctRows.length > 0) {
+          baseRows.push(distinctRows[0]);
+          if (distinctRows.length > 1 && distinctRows[1] === distinctRows[0] + 1) {
+              baseRows.push(distinctRows[1]);
+          }
+      }
+      const baseRecordTags = recordTags.filter(t => baseRows.includes(t.r));
+
       for (let slotIdx = 0; slotIdx < 12; slotIdx++) {
         const record = chunk[slotIdx];
         const rowOffset = slotIdx * 2;
@@ -196,7 +206,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
           };
         }
 
-        recordTags.forEach(tag => {
+        baseRecordTags.forEach(tag => {
           const targetRow = tag.r + rowOffset;
           const cell = newSheet.getRow(targetRow).getCell(tag.c);
           

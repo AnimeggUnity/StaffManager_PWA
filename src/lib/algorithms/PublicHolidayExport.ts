@@ -105,6 +105,16 @@ export async function generatePublicHolidayReport(
     });
 
     // 4. 填充假日紀錄 (9 槽位限制)
+    const distinctRows = [...new Set(recordTags.map(t => t.r))].sort((a, b) => a - b);
+    const baseRows: number[] = [];
+    if (distinctRows.length > 0) {
+        baseRows.push(distinctRows[0]);
+        if (distinctRows.length > 1 && distinctRows[1] === distinctRows[0] + 1) {
+            baseRows.push(distinctRows[1]);
+        }
+    }
+    const baseRecordTags = recordTags.filter(t => baseRows.includes(t.r));
+
     const limitedRecords = filteredRecords.slice(0, 9);
     for (let slotIdx = 0; slotIdx < 9; slotIdx++) {
       const record = limitedRecords[slotIdx];
@@ -128,7 +138,7 @@ export async function generatePublicHolidayReport(
         };
       }
 
-      recordTags.forEach(tag => {
+      baseRecordTags.forEach(tag => {
         const targetRow = tag.r + rowOffset;
         const cell = newSheet.getRow(targetRow).getCell(tag.c);
         

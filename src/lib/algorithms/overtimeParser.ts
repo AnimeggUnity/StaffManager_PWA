@@ -31,7 +31,11 @@ export async function parseOvertimeWord(
     staffData.people[id].records = [];
   });
 
-  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+  const options: any = { arrayBuffer: buffer };
+  if (typeof (globalThis as any).Buffer !== 'undefined') {
+    options.buffer = (globalThis as any).Buffer.from(buffer);
+  }
+  const result = await mammoth.extractRawText(options);
   const lines = result.value.split('\n').map(l => l.trim().replace(/\u3000/g, ''));
   
   const warnings: string[] = [];
