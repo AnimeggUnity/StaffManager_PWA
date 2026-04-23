@@ -140,15 +140,21 @@ export async function generatePublicHolidayReport(
 
       baseRecordTags.forEach(tag => {
         const targetRow = tag.r + rowOffset;
-        const cell = newSheet.getRow(targetRow).getCell(tag.c);
+        const targetCell = newSheet.getRow(targetRow).getCell(tag.c);
         
+        // 如果處理的是第二筆（含）以上的資料，主動從模板基準格複製內容（含標籤點）過來
+        if (slotIdx > 0) {
+          const templateCell = templateSheet.getRow(tag.r).getCell(tag.c);
+          targetCell.value = templateCell.value;
+        }
+
         // 建立專屬此 slot 的替換表
         const slotReps: Record<string, string> = {};
         Object.entries(reps).forEach(([k, v]) => {
           slotReps[`${k}_n`] = v;
         });
         
-        cell.value = replaceTags(cell.value, slotReps);
+        targetCell.value = replaceTags(targetCell.value, slotReps);
       });
     }
 
