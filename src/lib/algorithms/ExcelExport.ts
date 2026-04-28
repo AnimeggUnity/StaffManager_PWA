@@ -2,6 +2,16 @@ import ExcelJS from 'exceljs';
 import type { StaffData, TimeRecord, AppConfig } from '../../types';
 import { getCellText, replaceTags } from '../utils/excelUtils';
 
+function getColLetter(col: number): string {
+  let letter = "";
+  while (col > 0) {
+    const temp = (col - 1) % 26;
+    letter = String.fromCharCode(temp + 65) + letter;
+    col = (col - temp - 1) / 26;
+  }
+  return letter;
+}
+
 function calculateLastWorkingDay(monthStr: string): string {
   try {
     const now = new Date();
@@ -113,8 +123,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       if (templateSheet.columns) {
         templateSheet.columns.forEach((col, idx) => {
           const nCol = newSheet.getColumn(idx + 1);
-          if (idx + 1 === 13) nCol.width = 22.71; 
-          else if (col.width) nCol.width = col.width + 1; 
+          if (col.width) nCol.width = col.width;
           nCol.hidden = col.hidden;
           if (col.font) nCol.font = { ...col.font };
           if (col.fill) nCol.fill = { ...col.fill } as any;
@@ -146,6 +155,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
       });
 
       newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
+      newSheet.pageSetup.printArea = `A1:${getColLetter(templateSheet.columnCount)}${templateSheet.rowCount}`;
 
       // 填充全域標籤
       const globalValues: Record<string, string> = {

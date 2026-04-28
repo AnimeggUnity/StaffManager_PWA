@@ -65,7 +65,7 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
     if (templateSheet.columns) {
       templateSheet.columns.forEach((col, idx) => {
         const nCol = newSheet.getColumn(idx + 1);
-        if (col.width) nCol.width = col.width + 1; 
+        if (col.width) nCol.width = col.width;
         nCol.hidden = col.hidden;
         if (col.font) nCol.font = { ...col.font };
         if (col.fill) nCol.fill = { ...col.fill } as any;
@@ -169,16 +169,10 @@ export async function generateVehicleRecordReport(staffData: StaffData, appConfi
       }
     }
 
-    // 強制列印設定：0.25邊界與單頁縮放
-    newSheet.pageSetup = {
-      ...JSON.parse(JSON.stringify(templateSheet.pageSetup || {})),
-      margins: { left: 0.25, right: 0.25, top: 0.25, bottom: 0.25, header: 0.3, footer: 0.3 },
-      fitToPage: true,
-      fitToWidth: 1,
-      fitToHeight: 1,
-      orientation: 'portrait'
-    };
-    newSheet.views = [{ zoomScale: 100 }];
+    // 精確繼承模板列印設定，並鎖定列印範圍
+    newSheet.pageSetup = JSON.parse(JSON.stringify(templateSheet.pageSetup || {}));
+    const lastColLetter = String.fromCharCode(64 + templateSheet.columnCount);
+    newSheet.pageSetup.printArea = `A1:${lastColLetter}${templateSheet.rowCount}`;
   }
 
   for (const spec in TEMPLATE_CONFIG) {
