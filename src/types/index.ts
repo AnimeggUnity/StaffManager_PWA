@@ -1,3 +1,8 @@
+export interface LogMessage {
+  level: 'error' | 'warning' | 'info';
+  text: string;
+}
+
 export interface TimeRecord {
   date: string; // "MM/DD" 格式
   reason: string;

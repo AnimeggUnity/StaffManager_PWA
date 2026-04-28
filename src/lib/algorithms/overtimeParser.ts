@@ -1,5 +1,5 @@
 import mammoth from 'mammoth';
-import type { StaffData } from '../../types';
+import type { StaffData, LogMessage } from '../../types';
 
 // 中文月份對應
 const CHINESE_MONTHS: Record<string, number> = {
@@ -21,10 +21,10 @@ const DATE_PATTERN = /([元一二三四五六七八九十0-9]{1,3})\s*[月/]\s*(
 const LOCATION_CODES = ["Ａ", "Ｂ", "Ｃ", "Ｄ", "Ｅ", "Ｆ", "Ｇ", "Ｈ", "Ｉ", "Ｊ", "Ｋ", "Ｌ", "Ｍ", "Ｎ", "Ｏ"];
 
 export async function parseOvertimeWord(
-  buffer: ArrayBuffer, 
+  buffer: ArrayBuffer,
   staffData: StaffData,
-  defaultDate?: string 
-): Promise<{ data: StaffData; warnings: string[]; month: string | null }> {
+  defaultDate?: string
+): Promise<{ data: StaffData; warnings: LogMessage[]; month: string | null }> {
   
   // 0. 初始化
   Object.keys(staffData.people).forEach(id => {
@@ -38,7 +38,7 @@ export async function parseOvertimeWord(
   const result = await mammoth.extractRawText(options);
   const lines = result.value.split('\n').map(l => l.trim().replace(/\u3000/g, ''));
   
-  const warnings: string[] = [];
+  const warnings: LogMessage[] = [];
   let currentDate: string | null = defaultDate || null;
   let detectedMonth: string | null = null;
 
@@ -105,8 +105,8 @@ export async function parseOvertimeWord(
       if (line.includes(shortName)) {
         const fullNames = nameIndex[shortName];
         if (fullNames.length > 1) {
-          const skipMsg = `⚠️ 警告：偵測到撞名「${shortName}」可能為 ${fullNames.join('、')}，已跳過此行匹配`;
-          if (!warnings.includes(skipMsg)) warnings.push(skipMsg);
+          const skipMsg = `撞名「${shortName}」可能為 ${fullNames.join('、')}，已跳過此行`;
+          if (!warnings.some(w => w.text === skipMsg)) warnings.push({ level: 'error', text: skipMsg });
         } else {
           matchedFullNames.push(fullNames[0]);
         }
@@ -134,14 +134,12 @@ export async function parseOvertimeWord(
       } else if (isLate) {
         sh = "08"; eh = "12";
       } else if (isEarly && !isLocationA) {
-        // 早班非A點排除
-        const skipMsg = `[排除] 早班人員 ${name} 於「${targetReason}」不計加班`;
-        if (!warnings.includes(skipMsg)) warnings.push(skipMsg);
+        const skipMsg = `早班 ${name} 於「${targetReason}」不計加班，已排除`;
+        if (!warnings.some(w => w.text === skipMsg)) warnings.push({ level: 'warning', text: skipMsg });
         return;
       } else {
-        // 非名單人員警告
-        const skipMsg = `[排除] 人員 ${name} 不在早晚班名單中，跳過其於「${targetReason}」之記錄`;
-        if (!warnings.includes(skipMsg)) warnings.push(skipMsg);
+        const skipMsg = `${name} 不在早晚班名單，跳過「${targetReason}」`;
+        if (!warnings.some(w => w.text === skipMsg)) warnings.push({ level: 'warning', text: skipMsg });
         return;
       }
 
@@ -154,7 +152,7 @@ export async function parseOvertimeWord(
         
         if (dailySeen[currentDate][name].length > 0) {
           const conflictReason = dailySeen[currentDate][name][0];
-          warnings.push(`⚠️ 警告：${name} 於 ${currentDate} 重複排班：${conflictReason} 與 ${targetReason}`);
+          warnings.push({ level: 'error', text: `${name} 於 ${currentDate} 重複排班：${conflictReason} 與 ${targetReason}` });
         }
         dailySeen[currentDate][name].push(targetReason);
 
