@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import {
   FileSpreadsheet,
   Users,
-  AlertCircle,
   CheckCircle2,
   ArrowUpRight,
   FileText,
