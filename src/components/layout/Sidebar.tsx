@@ -69,7 +69,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
-        {!isCollapsed && <span>v2.0.0 (Web App)</span>}
+        {!isCollapsed && <span>{__BUILD_TIME__}</span>}
       </div>
     </aside>
   );

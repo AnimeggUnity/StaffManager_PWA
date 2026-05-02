@@ -196,7 +196,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             sh_day: record.date.split('/')[1] || "",
             reason: record.reason || "",
             sh: record.sh, sm: record.sm, eh: record.eh, em: record.em,
-            day_total: hrs.toString(), pay_hours: hrs.toString(), rest_hours: "",
+            day_total: hrs.toString(), pay_hours: hrs.toString(),
             pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
           };
         } else if (person.records.length > 0) {
@@ -207,14 +207,14 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             sm: "00",
             eh: isEarly ? "22" : "12",
             em: "00",
-            day_total: "4", pay_hours: "4", rest_hours: "",
+            day_total: "4", pay_hours: "4",
             pay_check: "■", rest_check: "□", repeat: ""
           };
         } else {
           reps = {
             date: "", sh_day: "", reason: "",
             sh: "", sm: "", eh: "", em: "",
-            day_total: "", pay_hours: "", rest_hours: "",
+            day_total: "", pay_hours: "",
             pay_check: "□", rest_check: "□", repeat: ""
           };
         }

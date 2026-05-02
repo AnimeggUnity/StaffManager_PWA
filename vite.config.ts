@@ -3,8 +3,17 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+function buildTime(): string {
+  const now = new Date();
+  const p = (n: number) => n.toString().padStart(2, '0');
+  return `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}`;
+}
+
 export default defineConfig({
   base: './',
+  define: {
+    __BUILD_TIME__: JSON.stringify(buildTime()),
+  },
   plugins: [
     react(),
     VitePWA({
