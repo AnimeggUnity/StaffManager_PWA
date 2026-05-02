@@ -26,14 +26,7 @@ function calculateLastWorkingDay(monthStr: string): string {
   } catch { return ""; }
 }
 
-function padTime(val: string): string {
-  return val === "" ? "  " : val;
-}
 
-function padHours(val: string): string {
-  if (val === "") return "  ";
-  return val.length < 2 ? " " + val : val;
-}
 
 
 function calculateHours(record: TimeRecord): number {
@@ -202,8 +195,8 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             date: applicationDate,
             sh_day: record.date.split('/')[1] || "",
             reason: record.reason || "",
-            sh: padTime(record.sh), sm: padTime(record.sm), eh: padTime(record.eh), em: padTime(record.em),
-            day_total: hrs.toString(), pay_hours: padHours(hrs.toString()), rest_hours: padHours(""),
+            sh: record.sh, sm: record.sm, eh: record.eh, em: record.em,
+            day_total: hrs.toString(), pay_hours: hrs.toString(), rest_hours: "",
             pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
           };
         } else if (person.records.length > 0) {
@@ -214,14 +207,14 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             sm: "00",
             eh: isEarly ? "22" : "12",
             em: "00",
-            day_total: "4", pay_hours: padHours("4"), rest_hours: padHours(""),
+            day_total: "4", pay_hours: "4", rest_hours: "",
             pay_check: "■", rest_check: "□", repeat: ""
           };
         } else {
           reps = {
             date: "", sh_day: "", reason: "",
-            sh: padTime(""), sm: padTime(""), eh: padTime(""), em: padTime(""),
-            day_total: "", pay_hours: padHours(""), rest_hours: padHours(""),
+            sh: "", sm: "", eh: "", em: "",
+            day_total: "", pay_hours: "", rest_hours: "",
             pay_check: "□", rest_check: "□", repeat: ""
           };
         }
