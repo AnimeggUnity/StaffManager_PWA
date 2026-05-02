@@ -214,7 +214,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
           reps = {
             date: "", sh_day: "", reason: "",
             sh: "", sm: "", eh: "", em: "",
-            day_total: "", pay_hours: "",
+            day_total: "", pay_hours: " ",
             pay_check: "□", rest_check: "□", repeat: ""
           };
         }
