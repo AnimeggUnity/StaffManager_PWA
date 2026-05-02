@@ -35,10 +35,6 @@ function padHours(val: string): string {
   return val.length < 2 ? " " + val : val;
 }
 
-function padRestHours(val: string): string {
-  // Extra    compensates for 補休(2u) vs 加班費(3u) 1u width difference
-  return "  " + padHours(val);
-}
 
 function calculateHours(record: TimeRecord): number {
   if (record.manual_hours !== undefined && record.manual_hours !== null) return record.manual_hours;
@@ -207,7 +203,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             sh_day: record.date.split('/')[1] || "",
             reason: record.reason || "",
             sh: padTime(record.sh), sm: padTime(record.sm), eh: padTime(record.eh), em: padTime(record.em),
-            day_total: hrs.toString(), pay_hours: padHours(hrs.toString()), rest_hours: padRestHours(""),
+            day_total: hrs.toString(), pay_hours: padHours(hrs.toString()), rest_hours: padHours(""),
             pay_check: hrs > 0 ? "■" : "□", rest_check: "□", repeat: ""
           };
         } else if (person.records.length > 0) {
@@ -218,14 +214,14 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
             sm: "00",
             eh: isEarly ? "22" : "12",
             em: "00",
-            day_total: "4", pay_hours: padHours("4"), rest_hours: padRestHours(""),
+            day_total: "4", pay_hours: padHours("4"), rest_hours: padHours(""),
             pay_check: "■", rest_check: "□", repeat: ""
           };
         } else {
           reps = {
             date: "", sh_day: "", reason: "",
             sh: padTime(""), sm: padTime(""), eh: padTime(""), em: padTime(""),
-            day_total: "", pay_hours: padHours(""), rest_hours: padRestHours(""),
+            day_total: "", pay_hours: padHours(""), rest_hours: padHours(""),
             pay_check: "□", rest_check: "□", repeat: ""
           };
         }
