@@ -213,7 +213,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
         } else {
           reps = {
             date: "", sh_day: "", reason: "",
-            sh: "", sm: "", eh: "", em: "",
+            sh: "  ", sm: "  ", eh: "  ", em: "  ",
             day_total: "", pay_hours: " ",
             pay_check: "□", rest_check: "□", repeat: ""
           };
