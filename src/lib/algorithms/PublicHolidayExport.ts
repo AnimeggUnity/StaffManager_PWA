@@ -161,7 +161,7 @@ export async function generatePublicHolidayReport(
 
     // --- 5. 同步合併儲存格與最終邊框修復 ---
     const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-    merges.forEach((m) => { newSheet.mergeCells(m); });
+    merges.forEach((m) => { (newSheet as any).mergeCellsWithoutStyle(m); });
 
     // --- 終極邊框同步 pass (雙向推斷：slave格與fill覆蓋格均可補回邊框) ---
     const tRowCount = templateSheet.rowCount;
