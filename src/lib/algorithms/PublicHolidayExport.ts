@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, AppConfig, ManualOvertime } from '../../types';
-import { getCellText, replaceTags } from '../utils/excelUtils';
+import { getCellText, replaceTags, calculateLastWorkingDay } from '../utils/excelUtils';
 
 export async function generatePublicHolidayReport(
   staffData: StaffData, 
@@ -35,6 +35,7 @@ export async function generatePublicHolidayReport(
   });
 
   const rocYear = (appConfig?.roc_year || (new Date().getFullYear() - 1911)).toString();
+  const applicationDate = calculateLastWorkingDay(staffData.month);
   const people = Object.values(staffData.people);
 
   // 2. 為每個符合條件的員工生成分頁
@@ -129,7 +130,7 @@ export async function generatePublicHolidayReport(
         const [eh, em] = record.end_time.split(':');
         const hrs = record.hours || 0;
         reps = { 
-          date: record.date.length === 4 ? `${record.date.substring(0, 2)}/${record.date.substring(2)}` : record.date, 
+          date: applicationDate, 
           sh_day: record.date.length === 4 ? record.date.substring(2) : record.date,
           reason: record.reason,
           sh: sh || "", sm: sm || "", eh: eh || "", em: em || "",

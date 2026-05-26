@@ -179,8 +179,8 @@ export function PublicHoliday() {
           <div className="flex flex-wrap items-center gap-4">
             <input 
               type="text" 
-              placeholder="日期 (MMDD)" 
-              className="px-4 py-3 bg-indigo-800/50 border border-indigo-700 rounded-xl outline-none focus:ring-2 focus:ring-white/30 transition-all w-32 placeholder:text-indigo-400 font-mono"
+              placeholder="日期 (僅填日，如: 01)" 
+              className="px-4 py-3 bg-indigo-800/50 border border-indigo-700 rounded-xl outline-none focus:ring-2 focus:ring-white/30 transition-all w-48 placeholder:text-indigo-400 font-mono"
               value={quickRule.date}
               onChange={e => setQuickRule({...quickRule, date: e.target.value})}
             />

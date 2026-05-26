@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { StaffData, TimeRecord, AppConfig } from '../../types';
-import { getCellText, replaceTags } from '../utils/excelUtils';
+import { getCellText, replaceTags, calculateLastWorkingDay } from '../utils/excelUtils';
 
 function getColLetter(col: number): string {
   let letter = "";
@@ -12,19 +12,6 @@ function getColLetter(col: number): string {
   return letter;
 }
 
-function calculateLastWorkingDay(monthStr: string): string {
-  try {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = parseInt(monthStr);
-    const firstDayOfCurrent = new Date(year, month - 1, 1);
-    const lastDayOfPrev = new Date(firstDayOfCurrent.getTime() - 24 * 60 * 60 * 1000);
-    while (lastDayOfPrev.getDay() === 3 || lastDayOfPrev.getDay() === 0) {
-      lastDayOfPrev.setDate(lastDayOfPrev.getDate() - 1);
-    }
-    return `${(lastDayOfPrev.getMonth() + 1).toString().padStart(2, '0')}/${lastDayOfPrev.getDate().toString().padStart(2, '0')}`;
-  } catch { return ""; }
-}
 
 
 

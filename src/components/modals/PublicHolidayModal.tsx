@@ -24,10 +24,7 @@ export function PublicHolidayModal({ isOpen, onClose }: PublicHolidayModalProps)
     if (!newRule.date || !newRule.reason) return;
     
     // 格式化日期 (確保是 MMDD)
-    let formattedDate = newRule.date.replace(/\//g, '');
-    if (formattedDate.length === 4) {
-      // OK
-    }
+    const formattedDate = newRule.date.replace(/\//g, '');
 
     const updatedRules = {
       records: [...holidayRules.records, { ...newRule, date: formattedDate }]
@@ -68,10 +65,10 @@ export function PublicHolidayModal({ isOpen, onClose }: PublicHolidayModalProps)
           <div className="bg-amber-50/50 p-4 rounded-xl space-y-4 border border-amber-100">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500">日期 (MMDD)</label>
+                <label className="text-xs font-bold text-slate-500">日期 (僅填日)</label>
                 <input 
                   type="text" 
-                  placeholder="例如 0404" 
+                  placeholder="例如 01" 
                   value={newRule.date}
                   onChange={e => setNewRule({...newRule, date: e.target.value})}
                   className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm"
