@@ -232,7 +232,7 @@ export async function generateExcelReport(staffData: StaffData, appConfig: AppCo
 
       // --- 5. 同步合併儲存格與邊框修復 ---
       const merges = (templateSheet.model as { merges?: string[] }).merges || [];
-      merges.forEach((m) => { newSheet.mergeCells(m); });
+      merges.forEach((m) => { (newSheet as any).mergeCellsWithoutStyle(m); });
 
       const tRowCount = templateSheet.rowCount;
       const tColCount = templateSheet.columnCount;
