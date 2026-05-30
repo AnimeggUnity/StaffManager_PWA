@@ -125,6 +125,9 @@ export async function generateDriveBonusReport(staffData: StaffData, appConfig: 
             dateCol = colNumber;
             cell.value = 1;
           } else {
+            if (text === '{{car_plate}}') { carRow = rowNumber; carCol = colNumber; }
+            if (text === '{{name}}') { nameRow = rowNumber; nameCol = colNumber; }
+            if (text === '{{emp_id}}') { idRow = rowNumber; idCol = colNumber; }
             cell.value = replaceTags(cell.value, replacements);
           }
         }
